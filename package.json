@@ -1,0 +1,16 @@
+{
+  "name": "clinicpay",
+  "version": "0.1.0",
+  "description": "Split-payer clinic invoices with on-chain receipts on NEAR (CLI + contract)",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "bin": { "clinicpay": "cli/clinicpay.mjs" },
+  "scripts": {
+    "test": "node --test cli/",
+    "test:contract": "cd contract && cargo test",
+    "build:wasm": "cd contract && cargo build --target wasm32-unknown-unknown --release",
+    "test:all": "npm test && npm run test:contract"
+  },
+  "engines": { "node": ">=18" }
+}

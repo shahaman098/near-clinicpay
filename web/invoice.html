@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClinicPay invoice</title>
+<style>
+  :root { --bg:#fff; --fg:#14181f; --mut:#5b6472; --line:#e3e7ee; --ok:#0a7a3d; --warn:#9a5b00; --bad:#b3261e; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1319; --fg:#e8ecf2; --mut:#9aa4b2; --line:#252c38; --ok:#48c78e; --warn:#f0b429; --bad:#ff7b72; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:1.4rem; margin:0 0 4px; } .mut { color:var(--mut); }
+  .badge { display:inline-block; padding:2px 10px; border-radius:99px; border:1px solid currentColor; font-size:.85rem; font-weight:600; }
+  .Paid { color:var(--ok); } .PartiallyPaid,.Open { color:var(--warn); } .Overdue,.Cancelled,.Refunded { color:var(--bad); }
+  table { width:100%; border-collapse:collapse; margin:16px 0; } th,td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  td.n,th.n { text-align:right; font-variant-numeric:tabular-nums; }
+  code,pre { font:13px ui-monospace,monospace; } pre { white-space:pre-wrap; word-break:break-all; background:var(--line); padding:10px; border-radius:8px; margin:6px 0 0; }
+  #err { color:var(--bad); } form { display:grid; gap:8px; grid-template-columns:1fr 1fr; margin:16px 0; } input,button { font:inherit; padding:8px; }
+  @media (max-width:520px) { form { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <form id="f"><input name="contract" placeholder="contract account (e.g. clinicpay.testnet)" required><input name="id" placeholder="invoice id" required><button>Show invoice</button></form>
+  <p id="err" role="alert"></p>
+  <section id="out" hidden>
+    <h1 id="title"></h1>
+    <p class="mut" id="meta"></p>
+    <table><thead><tr><th>Item</th><th class="n">NEAR</th></tr></thead><tbody id="lines"></tbody></table>
+    <table><thead><tr><th>Share</th><th>State</th><th class="n">NEAR</th></tr></thead><tbody id="shares"></tbody></table>
+    <p class="mut">Read live from the contract on NEAR. Nothing here can move funds; pay with your own wallet using the command shown under an open share.</p>
+  </section>
+</main>
+<script>
+const Y = 10n ** 24n;
+const nearOf = (y) => { const v = BigInt(y), f = (v % Y).toString().padStart(24, "0").replace(/0+$/, ""); return `${v / Y}${f ? "." + f : ""}`; };
+const when = (ms) => (ms ? new Date(Number(ms)).toISOString().replace("T", " ").slice(0, 16) + " UTC" : "");
+const q = new URLSearchParams(location.search);
+const rpcUrl = q.get("rpc") || "https://rpc.testnet.near.org";
+const network = q.get("network") || "testnet";
+
+async function view(contract, method, args) {
+  const r = await fetch(rpcUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+    jsonrpc: "2.0", id: "c", method: "query",
+    params: { request_type: "call_function", finality: "final", account_id: contract, method_name: method, args_base64: btoa(JSON.stringify(args)) } }) });
+  const b = await r.json();
+  if (b.error) throw new Error(JSON.stringify(b.error.cause || b.error));
+  if (b.result.error) throw new Error(b.result.error);
+  return JSON.parse(new TextDecoder().decode(new Uint8Array(b.result.result)));
+}
+const el = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
+const row = (cells) => { const tr = document.createElement("tr"); cells.forEach((c) => tr.append(c)); return tr; };
+
+async function show(contract, id) {
+  const err = document.getElementById("err"); err.textContent = "";
+  try {
+    const [inv, status] = await Promise.all([view(contract, "get_invoice", { invoice_id: id }), view(contract, "get_status", { invoice_id: id })]);
+    if (!inv) throw new Error(`No invoice "${id}" on ${contract}`);
+    document.getElementById("title").replaceChildren(document.createTextNode(`Invoice ${inv.id} `), el("span", status, `badge ${status}`));
+    document.getElementById("meta").textContent = `${inv.payee}${inv.memo ? " · " + inv.memo : ""}${inv.due_ms ? " · due " + when(inv.due_ms) : ""}`;
+    const total = inv.lines.reduce((a, l) => a + BigInt(l.amount), 0n);
+    const L = document.getElementById("lines"); L.replaceChildren(
+      ...inv.lines.map((l) => row([el("td", l.description), el("td", nearOf(l.amount), "n")])),
+      row([el("th", "Total"), el("th", nearOf(total), "n")]));
+    const S = document.getElementById("shares"); S.replaceChildren();
+    inv.shares.forEach((s, i) => {
+      const who = s.payer ? `payer: ${s.payer}` : "payer: anyone";
+      const first = el("td", s.label); first.append(el("div", who, "mut"));
+      const state = el("td", s.state, s.state === "Paid" ? "Paid" : s.state === "Refunded" ? "Refunded" : "Open");
+      if (s.state === "Paid") state.append(el("div", `by ${s.paid_by} · ${when(s.paid_at_ms)}`, "mut"));
+      if (s.state === "Refunded") state.append(el("div", when(s.refunded_at_ms), "mut"));
+      if (s.state === "Open") {
+        const cmd = `near contract call-function as-transaction ${contract} pay_share json-args '{"invoice_id":"${inv.id}","share_index":${i}}' prepaid-gas '30 Tgas' attached-deposit '${nearOf(s.amount)} NEAR' network-config ${network}`;
+        first.append(el("pre", cmd));
+      }
+      S.append(row([first, state, el("td", nearOf(s.amount), "n")]));
+    });
+    document.getElementById("out").hidden = false;
+  } catch (e) { err.textContent = e.message; document.getElementById("out").hidden = true; }
+}
+document.getElementById("f").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const d = new FormData(e.target); const u = new URL(location.href);
+  u.searchParams.set("contract", d.get("contract")); u.searchParams.set("id", d.get("id")); history.replaceState(null, "", u);
+  show(d.get("contract"), d.get("id"));
+});
+if (q.get("contract") && q.get("id")) { document.querySelector("[name=contract]").value = q.get("contract"); document.querySelector("[name=id]").value = q.get("id"); show(q.get("contract"), q.get("id")); }
+</script>
+</body>
+</html>
