@@ -113,7 +113,7 @@ node cli/clinicpay.mjs args --id INV-7 --memo "GP visit" \
 - CLI and page: Node standard library and browser APIs only.
 - Everything in this repository was written during the hackathon window for this
   entry. It is inspired by the owner's product Boto (boto.clinic, a clinic OS), but
-  no Boto code is included. Written with AI assistance (Claude Code).
+  no Boto code is included. Written with AI coding assistance (disclosed per hackathon rule Q-005).
 
 ## Layout
 
