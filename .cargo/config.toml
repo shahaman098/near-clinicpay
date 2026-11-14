@@ -1,0 +1,5 @@
+# near-sdk only routes panics to the NEAR host (so a failed call reports its message,
+# e.g. "attach exactly the share amount") when built with `--cfg near`, which
+# `cargo near build` sets. Plain `cargo build --target wasm32-unknown-unknown` needs it here.
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg", "near"]
