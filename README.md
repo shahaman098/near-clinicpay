@@ -68,12 +68,12 @@ funds needed: everything below runs on a local sandbox node.
    ```sh
    cd contract && cargo run --example demo
    ```
-   It prints a contract id, accounts, an RPC URL, and three on-chain `share_paid`
-   receipts: the patient's NEAR co-pay on `INV-2026-0042`, the same co-pay on
+   It prints a contract id, accounts, an RPC URL, and the on-chain events for three
+   payments: the patient's NEAR co-pay on `INV-2026-0042`, the same co-pay on
    `INV-2026-0043` (a 50 tUSDC invoice paid through a local 6-decimal test token),
-   and then the failure path: `INV-2026-0044` is created on a second token the clinic
-   is not registered for, the forward fails, `payment_reverted` is emitted and the
-   patient keeps their 10 tUSDC.
+   and then a failure: `INV-2026-0044` is created on a second token the clinic is not
+   registered for, the forward fails, `payment_reverted` is emitted and the patient
+   keeps their 10 tUSDC.
 
 3. **Read it back** with the commands the demo prints, from the repo root:
    ```sh
