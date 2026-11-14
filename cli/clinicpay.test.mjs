@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { buildCreateArgs, invoicesToCsv, nearToYocto, yoctoToNear, toUnits, fromUnits, payCommand, CSV_HEADER } from "./lib.mjs";
+import { buildCreateArgs, describe, invoicesToCsv, nearToYocto, yoctoToNear, toUnits, fromUnits, payCommand, CSV_HEADER } from "./lib.mjs";
 
 const run = promisify(execFile);
 const N = 10n ** 24n;
@@ -83,7 +83,19 @@ test("CSV has one row per share, escapes quotes and commas", () => {
   assert.equal(lines[0], CSV_HEADER.join(","));
   assert.match(lines[1], /"Visit, ""12 Nov"""/);
   assert.match(lines[1], /,Paid,patient.testnet,2026-/);
-  assert.match(lines[2], /,anyone,4,Open,,,,,PartiallyPaid$/);
+  assert.match(lines[2], /,anyone,4,Open,,,,,PartiallyPaid,,,,,$/);
+});
+
+test("adjudicated shares show billed vs approved in status and CSV", () => {
+  const adj = structuredClone(invoice);
+  adj.shares[1] = {
+    ...adj.shares[1], payer: "insurer.testnet", amount: (3n * N).toString(),
+    adjudication: { original: (4n * N).toString(), approved: (3n * N).toString(), reason: "CO-45, fee schedule", moved_to: 0, at_ms: "1763000000000" },
+  };
+  const text = describe(adj, "Open");
+  assert.match(text, /adjudicated by insurer.testnet .*billed 4, approved 3 NEAR \("CO-45, fee schedule"\); 1 NEAR moved to share #0/);
+  const row = invoicesToCsv([adj], () => "Open").trim().split("\n")[2];
+  assert.match(row, /,4,3,"CO-45, fee schedule",0,2025-11-/);
 });
 
 test("CLI status and export against a mock RPC node", async () => {

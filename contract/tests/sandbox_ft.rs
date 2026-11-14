@@ -320,3 +320,54 @@ async fn clinic_refund_returns_tokens_to_the_payer() -> anyhow::Result<()> {
     assert_eq!(balance(&env.token, env.pay.id().as_str()).await?, 0);
     Ok(())
 }
+
+#[tokio::test]
+async fn insurer_adjudicates_then_both_pay_the_adjusted_amounts() -> anyhow::Result<()> {
+    let env = setup(true).await?;
+    // The clinic billed the insurer 40; the insurer approves 30 on chain.
+    let r = env
+        .insurer
+        .call(env.pay.id(), "adjudicate_share")
+        .args_json(json!({
+            "invoice_id": "FT-1", "share_index": 1,
+            "approved": (30 * USD).to_string(),
+            "reason": "CO-45 charge exceeds fee schedule",
+            "move_to": 0
+        }))
+        .transact()
+        .await?;
+    assert!(r.is_success(), "{:?}", r.failures());
+    assert!(r.logs().iter().any(|l| l.contains("share_adjudicated")));
+
+    // Nobody else can adjudicate, and the decision is final.
+    let r = env
+        .clinic
+        .call(env.pay.id(), "adjudicate_share")
+        .args_json(json!({"invoice_id": "FT-1", "share_index": 1, "approved": "0", "reason": "x", "move_to": 0}))
+        .transact()
+        .await?;
+    assert!(r.is_failure());
+
+    let inv = invoice(&env).await?;
+    assert_eq!(inv["shares"][0]["amount"], (20 * USD).to_string());
+    assert_eq!(inv["shares"][1]["amount"], (30 * USD).to_string());
+    assert_eq!(inv["shares"][1]["adjudication"]["original"], (40 * USD).to_string());
+
+    // Paying the old 40 is returned in full; 30 settles the insurer's share.
+    let before = balance(&env.token, env.insurer.id().as_str()).await?;
+    let r = pay_ft(&env, &env.insurer, 40 * USD, json!({"invoice_id": "FT-1", "share_index": 1})).await?;
+    assert!(r.is_success());
+    assert_eq!(balance(&env.token, env.insurer.id().as_str()).await?, before);
+    let r = pay_ft(&env, &env.insurer, 30 * USD, json!({"invoice_id": "FT-1", "share_index": 1})).await?;
+    assert!(r.is_success(), "{:?}", r.failures());
+
+    fund(&env.token, &env.patient, 10 * USD).await?;
+    let r = pay_ft(&env, &env.patient, 20 * USD, json!({"invoice_id": "FT-1", "share_index": 0})).await?;
+    assert!(r.is_success(), "{:?}", r.failures());
+
+    assert_eq!(status(&env).await?, "Paid");
+    assert_eq!(balance(&env.token, env.clinic.id().as_str()).await?, 50 * USD, "clinic still gets the full bill");
+    assert_eq!(balance(&env.token, env.insurer.id().as_str()).await?, 10 * USD, "insurer paid only what it approved");
+    assert_eq!(balance(&env.token, env.pay.id().as_str()).await?, 0);
+    Ok(())
+}

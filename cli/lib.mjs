@@ -94,6 +94,7 @@ export const CSV_HEADER = [
   "invoice_id", "memo", "clinic", "currency", "token_contract", "invoice_total", "share_no",
   "share_label", "named_payer", "share_amount", "share_state", "paid_by", "paid_at_utc",
   "refunded_at_utc", "invoice_due_utc", "invoice_status",
+  "billed_amount", "approved_amount", "adjustment_reason", "adjusted_to_share", "adjudicated_at_utc",
 ];
 
 /** Units for an invoice: NEAR, or a token's decimals and symbol (from `metaOf`). */
@@ -116,6 +117,11 @@ export async function tokenMetas(rpc, invoices) {
   return out;
 }
 
+function adjCells(a, d) {
+  if (!a) return ["", "", "", "", ""];
+  return [fromUnits(a.original, d), fromUnits(a.approved, d), a.reason, a.moved_to ?? "", iso(a.at_ms)];
+}
+
 /** One CSV row per share, so an accountant can pivot by payer, state or date.
  *  Amounts are in each invoice's own currency (NEAR, or the token, e.g. USDC). */
 export function invoicesToCsv(invoices, statusOf = () => "", metaOf = () => null) {
@@ -129,6 +135,7 @@ export function invoicesToCsv(invoices, statusOf = () => "", metaOf = () => null
           inv.id, inv.memo, inv.payee, u.symbol, u.token ?? "", fromUnits(total, u.decimals), i, s.label,
           s.payer ?? "anyone", fromUnits(s.amount, u.decimals), s.state, s.paid_by ?? "",
           iso(s.paid_at_ms), iso(s.refunded_at_ms), iso(inv.due_ms), statusOf(inv),
+          ...adjCells(s.adjudication, u.decimals),
         ].map(csvCell).join(","),
       );
     });
@@ -165,6 +172,12 @@ export function describe(inv, status, units = NEAR_UNITS) {
     const who = s.payer ? `payer ${s.payer}` : "payer anyone";
     const tail = s.state === "Paid" ? ` by ${s.paid_by} at ${iso(s.paid_at_ms)}` : s.state === "Refunded" ? ` (refunded ${iso(s.refunded_at_ms)})` : "";
     out.push(`  #${i} ${s.label.padEnd(22)} ${fromUnits(s.amount, d).padStart(10)} ${sym}  ${s.state}${tail}  (${who})`);
+    const a = s.adjudication;
+    if (a) {
+      const moved = BigInt(a.original) - BigInt(a.approved);
+      out.push(`       adjudicated by ${s.payer} at ${iso(a.at_ms)}: billed ${fromUnits(a.original, d)}, approved ${fromUnits(a.approved, d)} ${sym} ("${a.reason}")` +
+        (moved > 0n ? `; ${fromUnits(moved, d)} ${sym} moved to share #${a.moved_to}` : ""));
+    }
   });
   return out.join("\n");
 }

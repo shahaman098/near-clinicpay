@@ -250,6 +250,60 @@ async fn main() -> anyhow::Result<()> {
         held / USD
     );
 
+    // ---- insurer adjudicates on chain, then both pay the adjusted amounts ------
+    fund(&token, &patient, 20 * USD).await?;
+    fund(&token, &insurer, 30 * USD).await?;
+    clinic
+        .call(contract.id(), "create_invoice")
+        .args_json(json!({
+            "id": "INV-2026-0045",
+            "memo": "Knee MRI 13 Nov, billed in stablecoin",
+            "lines": [{"description": "MRI knee (one area)", "amount": (50 * USD).to_string()}],
+            "shares": [
+                {"label": "Patient co-pay", "payer": patient.id(), "amount": (10 * USD).to_string()},
+                {"label": "Insurer", "payer": insurer.id(), "amount": (40 * USD).to_string()}
+            ],
+            "due_ms": null,
+            "token": token.id()
+        }))
+        .transact()
+        .await?
+        .into_result()?;
+    println!("8. clinic created INV-2026-0045 (50 tUSDC: patient 10 + insurer 40)");
+    let r = insurer
+        .call(contract.id(), "adjudicate_share")
+        .args_json(json!({
+            "invoice_id": "INV-2026-0045", "share_index": 1,
+            "approved": (30 * USD).to_string(),
+            "reason": "CO-45 charge exceeds fee schedule",
+            "move_to": 0
+        }))
+        .transact()
+        .await?
+        .into_result()?;
+    for l in r.logs() {
+        println!("   on-chain receipt: {l}");
+    }
+    println!("9. insurer approved 30 of 40 tUSDC on chain; the other 10 moved to the patient's share");
+    for (who, share, amount) in [(&insurer, 1, 30 * USD), (&patient, 0, 20 * USD)] {
+        who.call(token.id(), "ft_transfer_call")
+            .args_json(json!({
+                "receiver_id": contract.id(),
+                "amount": amount.to_string(),
+                "msg": json!({"invoice_id": "INV-2026-0045", "share_index": share}).to_string()
+            }))
+            .deposit(NearToken::from_yoctonear(1))
+            .max_gas()
+            .transact()
+            .await?
+            .into_result()?;
+    }
+    println!(
+        "10. insurer paid 30, patient paid 20: INV-2026-0045 is Paid and the clinic got the full 50 \
+         (contract holds {} tUSDC)\n",
+        balance(&token, contract.id().as_str()).await? / USD
+    );
+
     println!("Read it back (new terminal, from the repo root):");
     println!(
         "  node cli/clinicpay.mjs status --contract {} --id INV-2026-0042 --rpc {rpc}",
@@ -257,6 +311,10 @@ async fn main() -> anyhow::Result<()> {
     );
     println!(
         "  node cli/clinicpay.mjs status --contract {} --id INV-2026-0043 --rpc {rpc}",
+        contract.id()
+    );
+    println!(
+        "  node cli/clinicpay.mjs status --contract {} --id INV-2026-0045 --rpc {rpc}",
         contract.id()
     );
     println!(

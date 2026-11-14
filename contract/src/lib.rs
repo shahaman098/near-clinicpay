@@ -60,6 +60,21 @@ pub enum ShareState {
     Open,
     Paid,
     Refunded,
+    /// The named payer (an insurer) adjudicated the claim and approved nothing.
+    Denied,
+}
+
+/// An insurer's decision on its share, recorded on chain before it pays.
+/// `original` is what the clinic billed; `approved` is what the insurer will pay;
+/// the difference moved to share `moved_to` (normally the patient's).
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug, PartialEq)]
+pub struct Adjudication {
+    pub original: U128,
+    pub approved: U128,
+    pub reason: String,
+    pub moved_to: Option<u32>,
+    pub at_ms: U64,
 }
 
 /// What the clinic asks for when it creates a share.
@@ -83,6 +98,8 @@ pub struct Share {
     pub paid_by: Option<AccountId>,
     pub paid_at_ms: Option<U64>,
     pub refunded_at_ms: Option<U64>,
+    /// Set once if the named payer adjudicated this share (see `adjudicate_share`).
+    pub adjudication: Option<Adjudication>,
 }
 
 #[near(serializers = [borsh, json])]
@@ -193,6 +210,7 @@ impl ClinicPay {
                     paid_by: None,
                     paid_at_ms: None,
                     refunded_at_ms: None,
+                    adjudication: None,
                 })
                 .collect(),
             due_ms,
@@ -307,6 +325,89 @@ impl ClinicPay {
         )
     }
 
+    /// The named payer of an open share (an insurer) records its claim decision
+    /// before paying: it approves `approved` of the billed amount, with a reason
+    /// (e.g. "CO-45 exceeds fee schedule"). The rest moves to another open share,
+    /// normally the patient's, so the shares still add up to the bill. Approving
+    /// 0 denies the share. Each share can be adjudicated once; paid shares and
+    /// their receipts never change.
+    pub fn adjudicate_share(
+        &mut self,
+        invoice_id: String,
+        share_index: u32,
+        approved: U128,
+        reason: String,
+        move_to: Option<u32>,
+    ) -> Invoice {
+        let caller = env::predecessor_account_id();
+        let invoice = self.invoices.get_mut(&invoice_id).expect("no such invoice");
+        require!(!invoice.cancelled, "invoice is cancelled");
+        require!(
+            !reason.trim().is_empty() && reason.len() <= MAX_TEXT,
+            "reason must be 1-200 characters"
+        );
+        let idx = share_index as usize;
+        let share = invoice.shares.get(idx).expect("no such share");
+        require!(
+            share.payer.as_ref() == Some(&caller),
+            "only the share's named payer can adjudicate it"
+        );
+        require!(share.state == ShareState::Open, "share is not open");
+        require!(share.adjudication.is_none(), "share already adjudicated");
+        let original = share.amount.0;
+        require!(approved.0 <= original, "approved amount cannot exceed the share");
+        let residual = original - approved.0;
+        let total_before: u128 = invoice.shares.iter().map(|s| s.amount.0).sum();
+
+        let moved_to = if residual > 0 {
+            let to = move_to.expect("move_to is required when approving less than the share");
+            require!(to != share_index, "move_to must be another share");
+            let target = invoice
+                .shares
+                .get_mut(to as usize)
+                .expect("no such move_to share");
+            require!(
+                target.state == ShareState::Open && target.adjudication.is_none(),
+                "move_to share must be open and not adjudicated"
+            );
+            target.amount = U128(target.amount.0.checked_add(residual).expect("amount overflow"));
+            Some(to)
+        } else {
+            None
+        };
+
+        let share = &mut invoice.shares[idx];
+        share.amount = approved;
+        if approved.0 == 0 {
+            share.state = ShareState::Denied;
+        }
+        share.adjudication = Some(Adjudication {
+            original: U128(original),
+            approved,
+            reason: reason.clone(),
+            moved_to,
+            at_ms: now_ms(),
+        });
+        let total_after: u128 = invoice.shares.iter().map(|s| s.amount.0).sum();
+        require!(total_after == total_before, "shares must still add up to the bill");
+
+        emit(
+            "share_adjudicated",
+            &format!(
+                r#"{{"id":"{}","share":{},"payer":"{}","original":"{}","approved":"{}","moved_to":{},"moved_amount":"{}","reason":"{}"}}"#,
+                esc(&invoice_id),
+                share_index,
+                caller,
+                original,
+                approved.0,
+                moved_to.map(|t| t.to_string()).unwrap_or_else(|| "null".into()),
+                residual,
+                esc(&reason)
+            ),
+        );
+        invoice.clone()
+    }
+
     /// Clinic cancels an invoice that has no payments on it.
     pub fn cancel_invoice(&mut self, invoice_id: String) {
         let caller = env::predecessor_account_id();
@@ -314,7 +415,10 @@ impl ClinicPay {
         require!(caller == invoice.payee, "only the clinic can cancel");
         require!(!invoice.cancelled, "already cancelled");
         require!(
-            invoice.shares.iter().all(|s| s.state == ShareState::Open),
+            invoice
+                .shares
+                .iter()
+                .all(|s| matches!(s.state, ShareState::Open | ShareState::Denied)),
             "cannot cancel an invoice with payments; refund them first"
         );
         invoice.cancelled = true;
@@ -637,10 +741,15 @@ fn status_of(i: &Invoice, now: u64) -> Status {
         .iter()
         .filter(|s| s.state == ShareState::Refunded)
         .count();
-    if refunded == i.shares.len() {
+    let denied = i
+        .shares
+        .iter()
+        .filter(|s| s.state == ShareState::Denied)
+        .count();
+    if refunded > 0 && refunded + denied == i.shares.len() {
         return Status::Refunded;
     }
-    if open == 0 && paid + refunded == i.shares.len() {
+    if open == 0 {
         return Status::Paid;
     }
     let overdue = i.due_ms.map(|d| now > d.0).unwrap_or(false);
@@ -1082,5 +1191,154 @@ mod tests {
         c.create_invoice("OTHER".into(), "".into(), lines(), two_shares(), None, None);
         assert_eq!(c.list_invoices(accounts(1), None, None).len(), 1);
         assert_eq!(c.list_invoices(accounts(4), None, None).len(), 1);
+    }
+
+    // ---- adjudication ----------------------------------------------------
+
+    fn last_event(name: &str) -> near_sdk::serde_json::Value {
+        let log = near_sdk::test_utils::get_logs()
+            .into_iter()
+            .rev()
+            .find(|l| l.contains(&format!("\"event\":\"{}\"", name)))
+            .expect("event logged");
+        let v: near_sdk::serde_json::Value =
+            near_sdk::serde_json::from_str(log.strip_prefix("EVENT_JSON:").unwrap()).unwrap();
+        v["data"][0].clone()
+    }
+
+    #[test]
+    fn insurer_partial_approval_moves_rest_to_patient() {
+        let mut c = setup();
+        ctx(accounts(3), 0);
+        let inv = c.adjudicate_share(
+            "INV-1".into(),
+            1,
+            U128(3 * NEAR),
+            "CO-45 \"exceeds\" fee schedule".into(),
+            Some(0),
+        );
+        assert_eq!(inv.shares[1].amount, U128(3 * NEAR));
+        assert_eq!(inv.shares[0].amount, U128(2 * NEAR));
+        let a = inv.shares[1].adjudication.clone().unwrap();
+        assert_eq!(a.original, U128(4 * NEAR));
+        assert_eq!(a.moved_to, Some(0));
+        let e = last_event("share_adjudicated");
+        assert_eq!(e["moved_amount"], (NEAR).to_string());
+        assert_eq!(e["reason"], "CO-45 \"exceeds\" fee schedule");
+        // Both parties then pay the adjusted amounts and the invoice closes.
+        ctx(accounts(2), 2 * NEAR);
+        let _ = c.pay_share("INV-1".into(), 0);
+        ctx(accounts(3), 3 * NEAR);
+        let _ = c.pay_share("INV-1".into(), 1);
+        assert_eq!(c.get_status("INV-1".into()), Some(Status::Paid));
+    }
+
+    #[test]
+    fn insurer_full_denial_marks_share_denied() {
+        let mut c = setup();
+        ctx(accounts(3), 0);
+        let inv = c.adjudicate_share("INV-1".into(), 1, U128(0), "CO-50 not covered".into(), Some(0));
+        assert_eq!(inv.shares[1].state, ShareState::Denied);
+        assert_eq!(inv.shares[1].amount, U128(0));
+        assert_eq!(inv.shares[0].amount, U128(5 * NEAR));
+        ctx(accounts(2), 5 * NEAR);
+        let _ = c.pay_share("INV-1".into(), 0);
+        assert_eq!(c.get_status("INV-1".into()), Some(Status::Paid));
+    }
+
+    #[test]
+    fn full_approval_needs_no_target() {
+        let mut c = setup();
+        ctx(accounts(3), 0);
+        let inv = c.adjudicate_share("INV-1".into(), 1, U128(4 * NEAR), "approved".into(), None);
+        assert_eq!(inv.shares[1].adjudication.clone().unwrap().moved_to, None);
+        assert_eq!(inv.shares[0].amount, U128(NEAR));
+    }
+
+    #[test]
+    #[should_panic(expected = "only the share's named payer can adjudicate it")]
+    fn clinic_cannot_adjudicate_insurer_share() {
+        let mut c = setup();
+        ctx(accounts(1), 0);
+        c.adjudicate_share("INV-1".into(), 1, U128(NEAR), "x".into(), Some(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "share already adjudicated")]
+    fn adjudicate_only_once() {
+        let mut c = setup();
+        ctx(accounts(3), 0);
+        c.adjudicate_share("INV-1".into(), 1, U128(3 * NEAR), "x".into(), Some(0));
+        c.adjudicate_share("INV-1".into(), 1, U128(2 * NEAR), "y".into(), Some(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "move_to share must be open and not adjudicated")]
+    fn cannot_move_residual_onto_paid_share() {
+        let mut c = setup();
+        ctx(accounts(2), NEAR);
+        let _ = c.pay_share("INV-1".into(), 0);
+        ctx(accounts(3), 0);
+        c.adjudicate_share("INV-1".into(), 1, U128(3 * NEAR), "x".into(), Some(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "approved amount cannot exceed the share")]
+    fn cannot_approve_more_than_billed() {
+        let mut c = setup();
+        ctx(accounts(3), 0);
+        c.adjudicate_share("INV-1".into(), 1, U128(5 * NEAR), "x".into(), Some(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "move_to is required")]
+    fn residual_needs_a_target() {
+        let mut c = setup();
+        ctx(accounts(3), 0);
+        c.adjudicate_share("INV-1".into(), 1, U128(NEAR), "x".into(), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "move_to must be another share")]
+    fn residual_cannot_target_itself() {
+        let mut c = setup();
+        ctx(accounts(3), 0);
+        c.adjudicate_share("INV-1".into(), 1, U128(NEAR), "x".into(), Some(1));
+    }
+
+    #[test]
+    #[should_panic(expected = "share is not open")]
+    fn denied_share_cannot_be_paid() {
+        let mut c = setup();
+        ctx(accounts(3), 0);
+        c.adjudicate_share("INV-1".into(), 1, U128(0), "denied".into(), Some(0));
+        ctx(accounts(3), 0);
+        let _ = c.pay_share("INV-1".into(), 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "only the share's named payer")]
+    fn open_share_without_named_payer_cannot_be_adjudicated() {
+        ctx(accounts(1), 0);
+        let mut c = ClinicPay::new();
+        let shares = vec![
+            ShareInput { label: "a".into(), payer: None, amount: U128(NEAR) },
+            ShareInput { label: "b".into(), payer: None, amount: U128(4 * NEAR) },
+        ];
+        c.create_invoice("INV-9".into(), "".into(), lines(), shares, None, None);
+        ctx(accounts(3), 0);
+        c.adjudicate_share("INV-9".into(), 1, U128(NEAR), "x".into(), Some(0));
+    }
+
+    #[test]
+    fn refunding_the_only_paid_share_next_to_a_denied_one_marks_refunded() {
+        let mut c = setup();
+        ctx(accounts(3), 0);
+        c.adjudicate_share("INV-1".into(), 1, U128(0), "denied".into(), Some(0));
+        ctx(accounts(2), 5 * NEAR);
+        let _ = c.pay_share("INV-1".into(), 0);
+        ctx(accounts(1), 5 * NEAR);
+        let _ = c.refund_share("INV-1".into(), 0);
+        assert_eq!(c.get_status("INV-1".into()), Some(Status::Refunded));
     }
 }

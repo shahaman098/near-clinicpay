@@ -15,7 +15,8 @@
   #toggle { font-size:.85rem; color:var(--mut); }
   form.loaded { display:none; }
   .badge { display:inline-block; padding:2px 10px; border-radius:99px; border:1px solid currentColor; font-size:.85rem; font-weight:600; }
-  .Paid { color:var(--ok); } .PartiallyPaid,.Open { color:var(--warn); } .Overdue,.Cancelled,.Refunded { color:var(--bad); }
+  .Paid { color:var(--ok); } .PartiallyPaid,.Open { color:var(--warn); } .Overdue,.Cancelled,.Refunded,.Denied { color:var(--bad); }
+  .adj { margin-top:4px; font-size:.9rem; } .adj s { color:var(--mut); }
   table { width:100%; border-collapse:collapse; margin:16px 0; } th,td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
   td.n,th.n { text-align:right; font-variant-numeric:tabular-nums; }
   td { overflow-wrap: anywhere; }
@@ -99,10 +100,11 @@ async function show(contract, id) {
     const paid = inv.shares.filter((s) => s.state === "Paid").reduce((a, s) => a + BigInt(s.amount), 0n);
     const pct = total === 0n ? 0 : Number((paid * 100n) / total);
     const paidCount = inv.shares.filter((s) => s.state === "Paid").length;
+    const payable = inv.shares.filter((s) => s.state !== "Denied").length;
     document.getElementById("bar").setAttribute("aria-valuenow", String(pct));
     document.getElementById("bar-fill").style.width = `${pct}%`;
     document.getElementById("progress").textContent =
-      `${amt(paid)} of ${amt(total)} ${meta.symbol} settled · ${paidCount} of ${inv.shares.length} share${inv.shares.length === 1 ? "" : "s"} paid`;
+      `${amt(paid)} of ${amt(total)} ${meta.symbol} settled · ${paidCount} of ${payable} share${payable === 1 ? "" : "s"} paid`;
     const L = document.getElementById("lines"); L.replaceChildren(
       ...inv.lines.map((l) => row([el("td", l.description), el("td", amt(l.amount), "n")])),
       row([el("th", "Total"), el("th", amt(total), "n")]));
@@ -110,7 +112,15 @@ async function show(contract, id) {
     inv.shares.forEach((s, i) => {
       const who = s.payer ? `payer: ${s.payer}` : "payer: anyone";
       const first = el("td", s.label); first.append(el("div", who, "mut"));
-      const state = el("td", s.state, s.state === "Paid" ? "Paid" : s.state === "Refunded" ? "Refunded" : "Open");
+      const state = el("td", s.state, ["Paid", "Refunded", "Denied"].includes(s.state) ? s.state : "Open");
+      const a = s.adjudication;
+      if (a) {
+        const moved = BigInt(a.original) - BigInt(a.approved);
+        const d = el("div", undefined, "adj");
+        d.append(el("s", amt(a.original)), document.createTextNode(` → ${amt(a.approved)} ${meta.symbol} approved by ${s.payer}: “${a.reason}”` +
+          (moved > 0n ? ` · ${amt(moved)} ${meta.symbol} moved to share #${a.moved_to}` : "")));
+        first.append(d);
+      }
       if (s.state === "Paid") state.append(el("div", `by ${s.paid_by} · ${when(s.paid_at_ms)}`, "mut"));
       if (s.state === "Refunded") state.append(el("div", when(s.refunded_at_ms), "mut"));
       if (s.state === "Open") {
@@ -123,6 +133,8 @@ async function show(contract, id) {
     });
     const events = [];
     inv.shares.forEach((s, i) => {
+      const a = s.adjudication;
+      if (a) events.push({ t: Number(a.at_ms), text: `Share #${i} ${s.label} adjudicated: ${a.approved === "0" ? "denied" : "approved"} (${a.reason})`, amount: a.approved });
       if (s.paid_at_ms) events.push({ t: Number(s.paid_at_ms), text: `Share #${i} ${s.label} paid by ${s.paid_by}`, amount: s.amount });
       if (s.refunded_at_ms) events.push({ t: Number(s.refunded_at_ms), text: `Share #${i} ${s.label} refunded`, amount: s.amount });
     });
