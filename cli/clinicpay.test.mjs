@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { buildCreateArgs, invoicesToCsv, nearToYocto, yoctoToNear, CSV_HEADER } from "./lib.mjs";
+import { buildCreateArgs, invoicesToCsv, nearToYocto, yoctoToNear, toUnits, fromUnits, payCommand, CSV_HEADER } from "./lib.mjs";
 
 const run = promisify(execFile);
 const N = 10n ** 24n;
@@ -40,6 +40,42 @@ const invoice = {
   ],
 };
 
+const U = 10n ** 6n;
+const ftInvoice = {
+  id: "FT-1", payee: "clinic.testnet", memo: "Visit", due_ms: null, token: "usdc.testnet",
+  lines: [{ description: "Treatment", amount: (50n * U).toString() }],
+  shares: [
+    { label: "Patient", payer: "patient.testnet", amount: (10n * U).toString(), state: "Open", paid_by: null, paid_at_ms: null, refunded_at_ms: null },
+    { label: "Insurer", payer: "insurer.testnet", amount: (40n * U).toString(), state: "Open", paid_by: null, paid_at_ms: null, refunded_at_ms: null },
+  ],
+};
+
+test("token units: 6-decimal amounts convert exactly", () => {
+  assert.equal(toUnits("12.5", 6), 12500000n);
+  assert.equal(fromUnits(12500000n, 6), "12.5");
+  assert.equal(fromUnits(0, 6), "0");
+  assert.throws(() => toUnits("0.0000001", 6));
+});
+
+test("buildCreateArgs prices a token invoice in the token's units", () => {
+  const a = buildCreateArgs({
+    id: "FT-1", lines: ["Treatment=50"], shares: ["Patient:p.testnet=10", "Insurer:i.testnet=40"],
+    token: "usdc.testnet", decimals: 6,
+  });
+  assert.equal(a.token, "usdc.testnet");
+  assert.equal(a.lines[0].amount, "50000000");
+  assert.equal(buildCreateArgs({ id: "x", lines: ["a=1"], shares: ["s=1"] }).token, null);
+  assert.throws(() => buildCreateArgs({ id: "x", lines: ["a=1"], shares: ["s=1"], token: "usdc.testnet" }), /--decimals/);
+});
+
+test("payCommand uses ft_transfer_call for token invoices", () => {
+  const c = payCommand("pay.testnet", "FT-1", 0, "10000000", "testnet", "usdc.testnet");
+  assert.match(c, /usdc.testnet ft_transfer_call/);
+  assert.match(c, /"receiver_id":"pay.testnet"/);
+  assert.match(c, /attached-deposit '1 yoctoNEAR'/);
+  assert.match(payCommand("pay.testnet", "INV-1", 1, N), /pay_share .* attached-deposit '1 NEAR'/);
+});
+
 test("CSV has one row per share, escapes quotes and commas", () => {
   const csv = invoicesToCsv([invoice], () => "PartiallyPaid");
   const lines = csv.trim().split("\n");
@@ -56,7 +92,11 @@ test("CLI status and export against a mock RPC node", async () => {
     req.on("data", (c) => (body += c));
     req.on("end", () => {
       const p = JSON.parse(body).params;
-      const reply = { get_invoice: invoice, get_status: "PartiallyPaid", list_invoices: [invoice] }[p.method_name];
+      const inv = p.args_base64 && JSON.parse(Buffer.from(p.args_base64, "base64")).invoice_id === "FT-1" ? ftInvoice : invoice;
+      const reply = {
+        get_invoice: inv, get_status: "PartiallyPaid", list_invoices: [invoice, ftInvoice],
+        ft_metadata: { spec: "ft-1.0.0", name: "USD Coin", symbol: "USDC", decimals: 6 },
+      }[p.method_name];
       res.setHeader("content-type", "application/json");
       res.end(JSON.stringify({ jsonrpc: "2.0", id: "clinicpay", result: { result: [...Buffer.from(JSON.stringify(reply))] } }));
     });
@@ -68,8 +108,14 @@ test("CLI status and export against a mock RPC node", async () => {
     assert.match(st.stdout, /Invoice INV-1\s+\[PartiallyPaid\]/);
     assert.match(st.stdout, /near contract call-function as-transaction c.testnet pay_share/);
     assert.match(st.stdout, /attached-deposit '4 NEAR'/);
+    const ft = await run("node", ["cli/clinicpay.mjs", "status", "--contract", "c.testnet", "--id", "FT-1", "--rpc", rpc]);
+    assert.match(ft.stdout, /Paid in: USDC \(NEP-141 token usdc.testnet\)/);
+    assert.match(ft.stdout, /TOTAL\s+50 USDC/);
+    assert.match(ft.stdout, /usdc.testnet ft_transfer_call/);
     const ex = await run("node", ["cli/clinicpay.mjs", "export", "--contract", "c.testnet", "--clinic", "clinic.testnet", "--rpc", rpc]);
-    assert.equal(ex.stdout.trim().split("\n").length, 3);
+    const rows = ex.stdout.trim().split("\n");
+    assert.equal(rows.length, 5);
+    assert.match(rows[3], /^FT-1,Visit,clinic.testnet,USDC,usdc.testnet,50,0,/);
   } finally {
     server.close();
   }

@@ -26,14 +26,14 @@
   <section id="out" hidden>
     <h1 id="title"></h1>
     <p class="mut" id="meta"></p>
-    <table><thead><tr><th>Item</th><th class="n">NEAR</th></tr></thead><tbody id="lines"></tbody></table>
-    <table><thead><tr><th>Share</th><th>State</th><th class="n">NEAR</th></tr></thead><tbody id="shares"></tbody></table>
+    <table><thead><tr><th>Item</th><th class="n cur">NEAR</th></tr></thead><tbody id="lines"></tbody></table>
+    <table><thead><tr><th>Share</th><th>State</th><th class="n cur">NEAR</th></tr></thead><tbody id="shares"></tbody></table>
     <p class="mut">Read live from the contract on NEAR. Nothing here can move funds; pay with your own wallet using the command shown under an open share.</p>
   </section>
 </main>
 <script>
-const Y = 10n ** 24n;
-const nearOf = (y) => { const v = BigInt(y), f = (v % Y).toString().padStart(24, "0").replace(/0+$/, ""); return `${v / Y}${f ? "." + f : ""}`; };
+// Amount in smallest units -> decimal string. 24 decimals for NEAR, the token's own (6 for USDC) otherwise.
+const fmt = (y, d) => { const B = 10n ** BigInt(d), v = BigInt(y), f = d ? (v % B).toString().padStart(d, "0").replace(/0+$/, "") : ""; return `${v / B}${f ? "." + f : ""}`; };
 const when = (ms) => (ms ? new Date(Number(ms)).toISOString().replace("T", " ").slice(0, 16) + " UTC" : "");
 const q = new URLSearchParams(location.search);
 const rpcUrl = q.get("rpc") || "https://rpc.testnet.near.org";
@@ -56,12 +56,15 @@ async function show(contract, id) {
   try {
     const [inv, status] = await Promise.all([view(contract, "get_invoice", { invoice_id: id }), view(contract, "get_status", { invoice_id: id })]);
     if (!inv) throw new Error(`No invoice "${id}" on ${contract}`);
+    const meta = inv.token ? await view(inv.token, "ft_metadata", {}) : { decimals: 24, symbol: "NEAR" };
+    const amt = (y) => fmt(y, meta.decimals);
+    document.querySelectorAll(".cur").forEach((th) => (th.textContent = meta.symbol));
     document.getElementById("title").replaceChildren(document.createTextNode(`Invoice ${inv.id} `), el("span", status, `badge ${status}`));
-    document.getElementById("meta").textContent = `${inv.payee}${inv.memo ? " · " + inv.memo : ""}${inv.due_ms ? " · due " + when(inv.due_ms) : ""}`;
+    document.getElementById("meta").textContent = `${inv.payee}${inv.memo ? " · " + inv.memo : ""}${inv.due_ms ? " · due " + when(inv.due_ms) : ""} · paid in ${inv.token ? `${meta.symbol} (token ${inv.token})` : "NEAR"}`;
     const total = inv.lines.reduce((a, l) => a + BigInt(l.amount), 0n);
     const L = document.getElementById("lines"); L.replaceChildren(
-      ...inv.lines.map((l) => row([el("td", l.description), el("td", nearOf(l.amount), "n")])),
-      row([el("th", "Total"), el("th", nearOf(total), "n")]));
+      ...inv.lines.map((l) => row([el("td", l.description), el("td", amt(l.amount), "n")])),
+      row([el("th", "Total"), el("th", amt(total), "n")]));
     const S = document.getElementById("shares"); S.replaceChildren();
     inv.shares.forEach((s, i) => {
       const who = s.payer ? `payer: ${s.payer}` : "payer: anyone";
@@ -70,10 +73,12 @@ async function show(contract, id) {
       if (s.state === "Paid") state.append(el("div", `by ${s.paid_by} · ${when(s.paid_at_ms)}`, "mut"));
       if (s.state === "Refunded") state.append(el("div", when(s.refunded_at_ms), "mut"));
       if (s.state === "Open") {
-        const cmd = `near contract call-function as-transaction ${contract} pay_share json-args '{"invoice_id":"${inv.id}","share_index":${i}}' prepaid-gas '30 Tgas' attached-deposit '${nearOf(s.amount)} NEAR' network-config ${network}`;
+        const cmd = inv.token
+          ? `near contract call-function as-transaction ${inv.token} ft_transfer_call json-args '${JSON.stringify({ receiver_id: contract, amount: s.amount, msg: JSON.stringify({ invoice_id: inv.id, share_index: i }) })}' prepaid-gas '100 Tgas' attached-deposit '1 yoctoNEAR' network-config ${network}`
+          : `near contract call-function as-transaction ${contract} pay_share json-args '{"invoice_id":"${inv.id}","share_index":${i}}' prepaid-gas '30 Tgas' attached-deposit '${amt(s.amount)} NEAR' network-config ${network}`;
         first.append(el("pre", cmd));
       }
-      S.append(row([first, state, el("td", nearOf(s.amount), "n")]));
+      S.append(row([first, state, el("td", amt(s.amount), "n")]));
     });
     document.getElementById("out").hidden = false;
   } catch (e) { err.textContent = e.message; document.getElementById("out").hidden = true; }
