@@ -68,16 +68,21 @@ funds needed: everything below runs on a local sandbox node.
    ```sh
    cd contract && cargo run --example demo
    ```
-   It prints a contract id, accounts, an RPC URL, and the on-chain `share_paid`
-   receipt for the patient's co-pay.
+   It prints a contract id, accounts, an RPC URL, and two on-chain `share_paid`
+   receipts: the patient's NEAR co-pay on `INV-2026-0042`, then the same co-pay on
+   `INV-2026-0043`, a 50 tUSDC invoice paid with `ft_transfer_call` through a local
+   6-decimal test token that stands in for USDC.
 
 3. **Read it back** with the commands the demo prints, from the repo root:
    ```sh
    node cli/clinicpay.mjs status --contract <contract> --id INV-2026-0042 --rpc <rpc-url>
+   node cli/clinicpay.mjs status --contract <contract> --id INV-2026-0043 --rpc <rpc-url>
    node cli/clinicpay.mjs export --contract <contract> --clinic <clinic> --rpc <rpc-url>
    ```
    `status` shows `PartiallyPaid`, the paid co-pay with payer and timestamp, the open
-   insurer share, and the exact `near` CLI command that pays it. `export` prints the CSV.
+   insurer share, and the exact `near` CLI command that pays it. The second invoice
+   shows `50 tUSDC` with its token contract, read from the token's `ft_metadata`.
+   `export` prints the CSV with a `currency` column.
 
 4. **Build the wasm** for deployment: `npm run build:wasm`
    (`contract/target/wasm32-unknown-unknown/release/clinicpay.wasm`).
@@ -139,8 +144,9 @@ registered, payments are reverted and refunded (that is the rollback test above)
   Any standard NEP-141 token works the same way.
 - No meta-transaction relayer yet, so payers still need a little NEAR for gas. No
   NEAR Intents yet, so payers need the token on NEAR (no cross-chain payment).
-- `cargo run --example demo` shows the NEAR flow only; the stablecoin flow is shown by
-  `tests/sandbox_ft.rs`.
+- `cargo run --example demo` shows both flows: the NEAR invoice, then the stablecoin
+  invoice paid through a local 6-decimal test token. The rollback path (failed forward
+  refunds the payer) is proven by `tests/sandbox_ft.rs`, not shown in the demo.
 - `list_invoices` scans all invoices (fine at demo scale; needs an index at volume).
 - `web/invoice.html` is a read-only viewer that uses the same RPC calls as the CLI. It
   was checked in a browser against a mock RPC node for a USDC invoice, not against a
