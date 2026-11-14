@@ -388,8 +388,9 @@ async fn main() -> anyhow::Result<()> {
         contract.id(),
         clinic.id()
     );
-    println!("\nInvoice page (serve the repo, then open):");
-    println!("  python3 -m http.server 8080   ->   http://localhost:8080/web/invoice.html?contract={}&id=INV-2026-0042&rpc={rpc}", contract.id());
+    println!("\nClinic dashboard and invoice page (serve the repo, then open):");
+    println!("  python3 -m http.server 8080   ->   http://localhost:8080/web/clinic.html?contract={}&clinic={}&rpc={rpc}", contract.id(), clinic.id());
+    println!("                                     http://localhost:8080/web/invoice.html?contract={}&id=INV-2026-0042&rpc={rpc}", contract.id());
     println!("\nCtrl-C to stop the sandbox.");
     tokio::signal::ctrl_c().await?;
     Ok(())

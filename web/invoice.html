@@ -30,6 +30,7 @@
   .timeline time { color:var(--mut); font-variant-numeric:tabular-nums; white-space:nowrap; }
   .timeline .amt { margin-left:auto; white-space:nowrap; font-variant-numeric:tabular-nums; }
   code,pre { font:13px ui-monospace,monospace; } pre { white-space:pre-wrap; word-break:break-all; background:var(--line); padding:10px; border-radius:8px; margin:6px 0 0; }
+  a { color:inherit; }
   #err { color:var(--bad); } form { display:grid; gap:8px; grid-template-columns:1fr 1fr; margin:16px 0; } input,button { font:inherit; padding:8px; }
   @media (max-width:520px) {
     main { padding:20px 12px 48px; }
@@ -63,6 +64,7 @@
       <ol class="timeline" id="timeline"></ol>
     </section>
     <p class="mut" id="custody"></p>
+    <p class="mut"><a id="dash" href="#">All invoices for this clinic →</a></p>
     <p class="mut">Nothing here can move funds; pay with your own wallet (or gaslessly through a relayer) using the command shown under an open share.</p>
   </section>
 </main>
@@ -95,6 +97,7 @@ async function show(contract, id) {
     const amt = (y) => fmt(y, meta.decimals);
     document.querySelectorAll(".cur").forEach((th) => (th.textContent = meta.symbol));
     document.getElementById("title").replaceChildren(document.createTextNode(`Invoice ${inv.id} `), el("span", status, `badge ${status}`));
+    document.getElementById("dash").href = `clinic.html?contract=${encodeURIComponent(contract)}&clinic=${encodeURIComponent(inv.payee)}&rpc=${encodeURIComponent(rpcUrl)}`;
     document.getElementById("meta").textContent = `${inv.payee}${inv.memo ? " · " + inv.memo : ""}${inv.due_ms ? " · due " + when(inv.due_ms) : ""} · paid in ${inv.token ? `${meta.symbol} (token ${inv.token})` : "NEAR"}`;
     const total = inv.lines.reduce((a, l) => a + BigInt(l.amount), 0n);
     const paid = inv.shares.filter((s) => s.state === "Paid").reduce((a, s) => a + BigInt(s.amount), 0n);

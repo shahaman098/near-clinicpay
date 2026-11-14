@@ -48,6 +48,10 @@ who paid what and when. Refunds are another manual round trip.
   the gas and submits it. The relayer only pays for ClinicPay payments and claim
   decisions, and checks the share on chain first. In the sandbox tests the patient's
   NEAR balance changes by exactly 0.
+- A **clinic dashboard** (`web/clinic.html`) reads every invoice of a clinic from
+  chain: billed, collected, outstanding and insurer adjustments per currency, who
+  still owes what, every insurer decision with its reason, and a one-click accountant
+  CSV. Each invoice links to a payer-facing invoice page (`web/invoice.html`).
 - A zero-dependency **CLI** reads invoices straight from chain and exports an
   **accountant-ready CSV** (one row per share, with billed vs approved amounts and the
   adjudication reason).
@@ -149,7 +153,15 @@ funds needed: everything below runs on a local sandbox node.
    10 tUSDC moved to share #0`. `export` prints the CSV with `currency`,
    `billed_amount`, `approved_amount` and `adjustment_reason` columns.
 
-4. **Build the wasm** for deployment: `npm run build:wasm`
+4. **Open the clinic dashboard and invoice pages**: serve the repo
+   (`python3 -m http.server 8080`) and open the two URLs the demo prints. The dashboard
+   shows 160 tUSDC billed, 70 collected, 90 outstanding and 10 adjusted by the
+   insurer, plus the `CO-45` decision. Its CSV button downloads the same CSV as
+   `export`, because it imports the CLI's own `invoicesToCsv`.
+
+   ![ClinicPay clinic dashboard, read live from the local sandbox](web/clinic-dashboard.png)
+
+5. **Build the wasm** for deployment: `npm run build:wasm`
    (`contract/target/wasm32-unknown-unknown/release/clinicpay.wasm`).
 
 ### Contract API
@@ -301,11 +313,12 @@ Open Government Licence v3.0. The tool is offline and read-only. The bands
 - A reverted payout is refunded with a plain transfer. If the payer account no longer
   exists, that transfer fails and the funds stay in the contract, with no automatic
   recovery path.
-- `web/invoice.html` is a read-only viewer that uses the same RPC calls as the CLI. It
-  was checked in Chrome against the local sandbox demo at desktop, tablet and mobile
-  widths (no horizontal overflow), for a NEAR invoice and for a tUSDC invoice (the
-  screenshot below is that run); it has not been used against testnet or mainnet. The
-  tested interfaces are the contract and CLI.
+- `web/invoice.html` and `web/clinic.html` are read-only pages that use the same RPC
+  calls as the CLI. Both were checked in a browser against the local sandbox demo at
+  375 px, 768 px and desktop widths (no horizontal overflow), including the
+  adjudicated `INV-2026-0045` (screenshot below) and the gasless `INV-2026-0046`.
+  The figures on the dashboard were checked by hand against the demo's payments. They
+  have no automated browser tests and have not been used against testnet or mainnet.
 
   ![ClinicPay invoice page, read live from the local sandbox](web/invoice-page.png)
 - Not deployed to testnet or mainnet from this repo: deploying needs the team's own
@@ -339,7 +352,8 @@ test-token/                minimal NEP-141 test token for those tests (no value)
 contract/examples/demo.rs  live local demo
 cli/                       read-only CLI + tests
 bench/                     NHS national cost benchmark (665 outpatient procedures) + tests
-web/invoice.html           read-only invoice viewer
+web/invoice.html           read-only invoice page (payer view)
+web/clinic.html            read-only clinic dashboard + CSV download
 ```
 
 License: MIT.
