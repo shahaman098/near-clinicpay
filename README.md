@@ -45,9 +45,9 @@ who paid what and when. Refunds are another manual round trip.
   Paid shares never change.
 - **Patients pay without holding NEAR.** A stablecoin share can be paid gaslessly: the
   patient signs a NEP-366 delegate action, and the ClinicPay relayer (`relayer/`) pays
-  the gas and submits it. The relayer only pays for ClinicPay calls and checks the
-  share on chain first. In the sandbox tests the patient's NEAR balance changes by
-  exactly 0.
+  the gas and submits it. The relayer only pays for ClinicPay payments and claim
+  decisions, and checks the share on chain first. In the sandbox tests the patient's
+  NEAR balance changes by exactly 0.
 - A zero-dependency **CLI** reads invoices straight from chain and exports an
   **accountant-ready CSV** (one row per share, with billed vs approved amounts and the
   adjudication reason).
@@ -197,7 +197,7 @@ registered, payments are reverted and refunded (that is the rollback test above)
 ### Gasless payments (NEP-366 relayer)
 
 ```sh
-# relayer (key from the environment only; pays gas for ClinicPay calls and nothing else)
+# relayer (key from the environment only; pays gas for ClinicPay payments and adjudications only)
 RELAYER_ACCOUNT_ID=relayer.testnet RELAYER_PRIVATE_KEY=ed25519:... \
   node relayer/relayer.mjs serve --contract <clinicpay> --token <usdc-contract> --port 3030
 
@@ -224,7 +224,7 @@ Found while testing, and why NEAR invoices are not relayed: under NEP-366 the
 **relayer** funds any deposit attached inside the delegate, not the signer. A relayed
 `pay_share` would pay the clinic with the relayer's NEAR. The first version of the
 sandbox test caught this (the patient's balance did not move, the relayer's dropped by
-1 NEAR), so `pay_share` is refused and NEAR shares are paid directly.
+1 NEAR plus gas), so `pay_share` is refused and NEAR shares are paid directly.
 
 ### Check a price against NHS national costs (optional)
 

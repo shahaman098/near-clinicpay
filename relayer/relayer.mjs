@@ -66,6 +66,10 @@ function opts(argv) {
 }
 
 function serve(o, relayer) {
+  // One relay at a time: each transaction takes the relayer key's next nonce, so
+  // concurrent requests would otherwise collide and one of them would fail.
+  let queue = Promise.resolve();
+  const serial = (fn) => { const run = queue.then(fn, fn); queue = run.catch(() => {}); return run; };
   const server = http.createServer(async (req, res) => {
     const reply = (code, body) => {
       res.writeHead(code, { "content-type": "application/json", "access-control-allow-origin": o.origin, "access-control-allow-headers": "content-type" });
@@ -80,7 +84,7 @@ function serve(o, relayer) {
     for await (const c of req) { body += c; if (body.length > 64 * 1024) return reply(413, { error: "too large" }); }
     try {
       const { signed_delegate } = JSON.parse(body);
-      const r = await relay(signed_delegate, { rpc: o.rpc, contract: o.contract, tokens: o.tokens, relayer });
+      const r = await serial(() => relay(signed_delegate, { rpc: o.rpc, contract: o.contract, tokens: o.tokens, relayer }));
       reply(r.ok ? 200 : 422, r);
     } catch (e) {
       reply(e instanceof Refused ? 403 : 500, { error: e.message });
