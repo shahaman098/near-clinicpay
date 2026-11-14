@@ -5,12 +5,12 @@
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
-Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 96 passing (41 unit, 20 sandbox e2e on a real local NEAR node, 35 CLI/relayer/benchmark).
+Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 97 passing (41 unit, 21 sandbox e2e on a real local NEAR node, 35 CLI/relayer/benchmark).
 
 Fastest verification:
 
 ```sh
-npm test && (cd contract && cargo test)   # 78 tests, no keys, no network funds
+npm test && (cd contract && cargo test)   # 97 tests, no keys, no network funds
 cd contract && cargo run --example demo   # NEAR + stablecoin invoices, a rollback, insurer adjudication, a gasless payment
 ```
 
@@ -101,7 +101,7 @@ funds needed: everything below runs on a local sandbox node.
 1. **Run all tests.**
    ```sh
    npm test                      # 35 tests: CLI (mock RPC), Intents client, relayer policy, benchmark
-   cd contract && cargo test     # 39 unit + 4 NEAR + 5 stablecoin + 5 gasless + 1 deploy-tool sandbox tests
+   cd contract && cargo test     # 41 unit + 4 NEAR + 5 stablecoin + 5 gasless + 1 deploy-tool + 6 Intents sandbox tests
    ```
    You should see `test result: ok. 39 passed`, then (in file order) `ok. 4 passed`,
    `ok. 5 passed`, `ok. 1 passed`, `ok. 5 passed`.
@@ -355,6 +355,8 @@ clinic cannot receive the token: [`docs/INTENTS.md`](docs/INTENTS.md).
   paid directly (see above). The relayer enforces a sliding-window budget per payer and
   globally (`RELAYER_MAX_TX_PER_PAYER`, `RELAYER_MAX_TX_GLOBAL`,
   `RELAYER_MAX_GAS_GLOBAL`, `RELAYER_BUDGET_WINDOW_MS`); the defaults are demo-sized.
+  The budget lives in memory, so it applies to the long-running `serve` mode; each
+  one-off `submit` run starts with a fresh budget.
   Cross-chain payment is priced through NEAR Intents (1Click) and proven on a sandbox
   against the verifier's 50 Tgas default and 30 Tgas minimum; 1Click is mainnet-only, so it has
   not run end to end with real funds. See `docs/INTENTS.md`.
