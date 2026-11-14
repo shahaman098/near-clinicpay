@@ -19,7 +19,20 @@ const FLOOR_TGAS: u64 = 50;
 /// intents.near refuses a `ft_transfer_call` withdrawal below this (FT_TRANSFER_CALL_GAS_MIN).
 const HARD_MIN_TGAS: u64 = 30;
 
+/// Build each wasm once per test binary: tests run in parallel, and two `cargo build`s
+/// racing on the same output can leave one test reading a file that is being replaced.
 fn build(manifest: &str, wasm: &str) -> Vec<u8> {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+    static CACHE: OnceLock<Mutex<HashMap<String, Vec<u8>>>> = OnceLock::new();
+    let mut cache = CACHE.get_or_init(|| Mutex::new(HashMap::new())).lock().unwrap();
+    cache
+        .entry(wasm.to_string())
+        .or_insert_with(|| build_uncached(manifest, wasm))
+        .clone()
+}
+
+fn build_uncached(manifest: &str, wasm: &str) -> Vec<u8> {
     let status = Command::new("cargo")
         .args(["build", "--manifest-path", manifest, "--target", "wasm32-unknown-unknown", "--release"])
         .status()
@@ -216,5 +229,21 @@ async fn gas_sweep_reports_the_lowest_settling_delivery() -> anyhow::Result<()> 
     assert!(settled.contains(&FLOOR_TGAS), "50 Tgas must settle");
     assert!(settled.contains(&HARD_MIN_TGAS), "30 Tgas (the verifier's hard minimum) must settle");
     eprintln!("lowest settling delivery: {} Tgas", settled.iter().min().unwrap());
+    Ok(())
+}
+
+/// Direct payers are not bound by the verifier's 30 Tgas minimum, so the rollback must
+/// hold at any gas. With the clinic unregistered every forward fails; at each level the
+/// share must stay Open, the sender must have every token back and ClinicPay must hold 0.
+#[tokio::test]
+async fn rollback_holds_at_every_gas_level() -> anyhow::Result<()> {
+    let env = setup(false).await?;
+    let before = balance(&env.token, env.intents.id().as_str()).await?;
+    for gas in 15..=50u64 {
+        let _ = deliver(&env, 0, gas).await?;
+        assert_eq!(state(&env, "X-1", 0).await?, "Open", "share must stay Open at {gas} Tgas");
+        assert_eq!(balance(&env.token, env.intents.id().as_str()).await?, before, "sender refunded at {gas} Tgas");
+        assert_eq!(balance(&env.token, env.pay.id().as_str()).await?, 0, "ClinicPay holds 0 at {gas} Tgas");
+    }
     Ok(())
 }
