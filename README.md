@@ -68,10 +68,12 @@ funds needed: everything below runs on a local sandbox node.
    ```sh
    cd contract && cargo run --example demo
    ```
-   It prints a contract id, accounts, an RPC URL, and two on-chain `share_paid`
-   receipts: the patient's NEAR co-pay on `INV-2026-0042`, then the same co-pay on
-   `INV-2026-0043`, a 50 tUSDC invoice paid with `ft_transfer_call` through a local
-   6-decimal test token that stands in for USDC.
+   It prints a contract id, accounts, an RPC URL, and three on-chain `share_paid`
+   receipts: the patient's NEAR co-pay on `INV-2026-0042`, the same co-pay on
+   `INV-2026-0043` (a 50 tUSDC invoice paid through a local 6-decimal test token),
+   and then the failure path: `INV-2026-0044` is created on a second token the clinic
+   is not registered for, the forward fails, `payment_reverted` is emitted and the
+   patient keeps their 10 tUSDC.
 
 3. **Read it back** with the commands the demo prints, from the repo root:
    ```sh
@@ -144,9 +146,11 @@ registered, payments are reverted and refunded (that is the rollback test above)
   Any standard NEP-141 token works the same way.
 - No meta-transaction relayer yet, so payers still need a little NEAR for gas. No
   NEAR Intents yet, so payers need the token on NEAR (no cross-chain payment).
-- `cargo run --example demo` shows both flows: the NEAR invoice, then the stablecoin
-  invoice paid through a local 6-decimal test token. The rollback path (failed forward
-  refunds the payer) is proven by `tests/sandbox_ft.rs`, not shown in the demo.
+- `cargo run --example demo` shows both flows and one failure: the NEAR invoice, the
+  stablecoin invoice paid through a local 6-decimal test token, then a payment the
+  clinic cannot receive, which is reverted and refunded. `tests/sandbox_ft.rs` proves
+  the other failure cases (wrong amount or wrong payer); `tests/sandbox.rs` proves a
+  failed NEAR payout.
 - `list_invoices` scans all invoices (fine at demo scale; needs an index at volume).
 - `web/invoice.html` is a read-only viewer that uses the same RPC calls as the CLI. It
   was checked in Chrome against the local sandbox demo, for a NEAR invoice and for a
