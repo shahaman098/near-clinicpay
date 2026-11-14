@@ -15,7 +15,7 @@
 //! and if the forward fails the state is rolled back and the payer is refunded.
 
 use near_sdk::json_types::{U128, U64};
-use near_sdk::store::IterableMap;
+use near_sdk::store::{IterableMap, LookupMap};
 use near_sdk::{
     env, ext_contract, near, require, AccountId, Gas, NearToken, PanicOnDefault, Promise,
     PromiseError, PromiseOrValue,
@@ -133,6 +133,10 @@ pub enum Status {
 #[derive(PanicOnDefault)]
 pub struct ClinicPay {
     invoices: IterableMap<String, Invoice>,
+    /// Invoice ids per clinic, in creation order, so `list_invoices` reads one
+    /// clinic's list instead of scanning every invoice. Invoices are never
+    /// removed, so this list and `invoices` can only grow together.
+    by_payee: LookupMap<AccountId, Vec<String>>,
 }
 
 #[near]
@@ -141,6 +145,7 @@ impl ClinicPay {
     pub fn new() -> Self {
         Self {
             invoices: IterableMap::new(b"i"),
+            by_payee: LookupMap::new(b"p"),
         }
     }
 
@@ -218,6 +223,10 @@ impl ClinicPay {
             cancelled: false,
         };
         self.invoices.insert(id.clone(), invoice.clone());
+        self.by_payee
+            .entry(payee.clone())
+            .or_default()
+            .push(id.clone());
         emit(
             "invoice_created",
             &format!(
@@ -586,11 +595,13 @@ impl ClinicPay {
         limit: Option<u32>,
     ) -> Vec<Invoice> {
         let limit = limit.unwrap_or(25).min(50) as usize;
-        self.invoices
-            .values()
-            .filter(|i| i.payee == payee)
+        let Some(ids) = self.by_payee.get(&payee) else {
+            return Vec::new();
+        };
+        ids.iter()
             .skip(from_index.unwrap_or(0) as usize)
             .take(limit)
+            .filter_map(|id| self.invoices.get(id))
             .cloned()
             .collect()
     }
@@ -1205,6 +1216,47 @@ mod tests {
         c.create_invoice("OTHER".into(), "".into(), lines(), two_shares(), None, None);
         assert_eq!(c.list_invoices(accounts(1), None, None).len(), 1);
         assert_eq!(c.list_invoices(accounts(4), None, None).len(), 1);
+    }
+
+    #[test]
+    fn list_pages_each_clinics_own_invoices_in_creation_order() {
+        let mut c = setup(); // INV-1 belongs to accounts(1)
+        let make = |c: &mut ClinicPay, who: AccountId, id: &str| {
+            ctx(who, 0);
+            c.create_invoice(id.into(), "".into(), lines(), two_shares(), None, None);
+        };
+        // Interleave two clinics so neither one's invoices are contiguous.
+        make(&mut c, accounts(4), "B-1");
+        make(&mut c, accounts(1), "A-2");
+        make(&mut c, accounts(4), "B-2");
+        make(&mut c, accounts(1), "A-3");
+        make(&mut c, accounts(1), "A-4");
+        make(&mut c, accounts(4), "B-3");
+
+        let ids = |v: Vec<Invoice>| v.into_iter().map(|i| i.id).collect::<Vec<_>>();
+        let a = |from, limit| ids(c.list_invoices(accounts(1), from, limit));
+        let b = |from, limit| ids(c.list_invoices(accounts(4), from, limit));
+
+        // Each clinic gets only its own, oldest first, with the payee set correctly.
+        assert_eq!(a(None, None), ["INV-1", "A-2", "A-3", "A-4"]);
+        assert_eq!(b(None, None), ["B-1", "B-2", "B-3"]);
+        assert!(c
+            .list_invoices(accounts(4), None, None)
+            .iter()
+            .all(|i| i.payee == accounts(4)));
+
+        // Paging: from_index and limit.
+        assert_eq!(a(None, Some(2)), ["INV-1", "A-2"]);
+        assert_eq!(a(Some(2), Some(2)), ["A-3", "A-4"]);
+        assert_eq!(a(Some(3), Some(10)), ["A-4"]);
+        assert_eq!(a(Some(1), None), ["A-2", "A-3", "A-4"]);
+        assert_eq!(b(Some(1), Some(1)), ["B-2"]);
+        assert!(a(Some(4), None).is_empty());
+        assert!(a(Some(100), Some(5)).is_empty());
+        assert!(a(None, Some(0)).is_empty());
+
+        // A clinic with no invoices lists nothing.
+        assert!(c.list_invoices(accounts(5), None, None).is_empty());
     }
 
     // ---- adjudication ----------------------------------------------------

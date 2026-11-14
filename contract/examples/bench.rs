@@ -102,8 +102,18 @@ async fn setup() -> anyhow::Result<Env> {
 }
 
 async fn create(env: &Env, id: &str, token: Option<&str>) -> anyhow::Result<()> {
+    create_as(env, &env.clinic, id, token).await.map(|_| ())
+}
+
+/// Create a 5-unit, two-share invoice as `who`; returns the gas the call burnt.
+async fn create_as(
+    env: &Env,
+    who: &Account,
+    id: &str,
+    token: Option<&str>,
+) -> anyhow::Result<u128> {
     let unit = if token.is_some() { USD } else { NEAR };
-    env.clinic
+    let r = who
         .call(env.pay.id(), "create_invoice")
         .args_json(json!({
             "id": id,
@@ -119,7 +129,72 @@ async fn create(env: &Env, id: &str, token: Option<&str>) -> anyhow::Result<()> 
         .transact()
         .await?
         .into_result()?;
-    Ok(())
+    Ok(r.total_gas_burnt.as_gas() as u128)
+}
+
+/// One point on the scale curve: the contract holds `size` invoices in total, of
+/// which exactly 2 belong to the target clinic (the rest are one other clinic's).
+struct ScaleRow {
+    size: u32,
+    /// Gas of `list_invoices(target)` sent as a transaction (a view call reports no gas).
+    list_gas: u128,
+    list_ok: bool,
+    /// Gas of the `size`-th `create_invoice`, made by the busy clinic.
+    create_gas: u128,
+    /// Average storage bytes added per invoice since the previous size.
+    bytes_per_invoice: f64,
+}
+
+/// Fresh sandbox; grows the contract to each size in turn and measures at each.
+/// The target clinic's two invoices come first, so a full scan must walk every
+/// other invoice to find them and never reaches the page limit early.
+async fn scale(sizes: &[u32]) -> anyhow::Result<Vec<ScaleRow>> {
+    let env = setup().await?;
+    let busy = env.worker.dev_create_account().await?;
+    let mut rows = Vec::new();
+    let mut total = 0u32;
+    let mut prev_usage = env.worker.view_account(env.pay.id()).await?.storage_usage;
+    for &size in sizes {
+        let start = total;
+        let mut create_gas = 0;
+        while total < size {
+            let who = if total < 2 { &env.clinic } else { &busy };
+            create_gas = create_as(&env, who, &format!("INV-2026-{total:04}"), None).await?;
+            total += 1;
+        }
+        let usage = env.worker.view_account(env.pay.id()).await?.storage_usage;
+        let r = env
+            .patient
+            .call(env.pay.id(), "list_invoices")
+            .args_json(json!({"payee": env.clinic.id(), "from_index": null, "limit": null}))
+            .max_gas()
+            .transact()
+            .await?;
+        let list_ok = r.is_success();
+        let list_gas = r.total_gas_burnt.as_gas() as u128;
+        if list_ok {
+            let got: Vec<Value> = r.json()?;
+            assert_eq!(got.len(), 2, "target clinic must list exactly its 2 invoices");
+        }
+        rows.push(ScaleRow {
+            size,
+            list_gas,
+            list_ok,
+            create_gas,
+            bytes_per_invoice: (usage - prev_usage) as f64 / (total - start) as f64,
+        });
+        prev_usage = usage;
+    }
+    Ok(rows)
+}
+
+const SCAN_BASELINE: &str = "examples/scale_scan_baseline.json";
+
+fn rows_to_json(rows: &[ScaleRow]) -> Value {
+    json!(rows.iter().map(|r| json!({
+        "size": r.size, "list_gas": r.list_gas.to_string(), "list_ok": r.list_ok,
+        "create_gas": r.create_gas.to_string(), "bytes_per_invoice": r.bytes_per_invoice,
+    })).collect::<Vec<_>>())
 }
 
 fn node(script: &str, args: &[&str], who: &str, account: &Account) -> (i32, String) {
@@ -176,8 +251,11 @@ fn submit(env: &Env, signed: &str) -> Value {
     serde_json::from_str(&out).expect("relayer printed non-JSON")
 }
 
-/// Gas and tokens burnt for a transaction hash, summed over the tx and all receipts.
-async fn tx_gas(rpc: &str, hash: &str, account: &str) -> anyhow::Result<(u128, u128)> {
+/// Gas burnt for a transaction hash, summed over the tx and all receipts. Cost is
+/// derived from this by the caller (gas × gas price), the same as every other row;
+/// the RPC's `tokens_burnt` is not used because it is priced per block and does not
+/// line up with the gas column.
+async fn tx_gas(rpc: &str, hash: &str, account: &str) -> anyhow::Result<u128> {
     let v: Value = reqwest::Client::new()
         .post(rpc)
         .json(&json!({"jsonrpc": "2.0", "id": "bench", "method": "tx", "params": [hash, account]}))
@@ -189,20 +267,13 @@ async fn tx_gas(rpc: &str, hash: &str, account: &str) -> anyhow::Result<(u128, u
         anyhow::bail!("tx {hash}: {err}");
     }
     let result = &v["result"];
-    let mut gas = 0u128;
-    let mut tokens = 0u128;
-    let mut add = |o: &Value| {
-        gas += o["gas_burnt"].as_u64().unwrap_or(0) as u128;
-        tokens += o["tokens_burnt"]
-            .as_str()
-            .and_then(|s| s.parse::<u128>().ok())
-            .unwrap_or(0);
-    };
-    add(&result["transaction_outcome"]["outcome"]);
+    let mut gas = result["transaction_outcome"]["outcome"]["gas_burnt"]
+        .as_u64()
+        .unwrap_or(0) as u128;
     for r in result["receipts_outcome"].as_array().into_iter().flatten() {
-        add(&r["outcome"]);
+        gas += r["outcome"]["gas_burnt"].as_u64().unwrap_or(0) as u128;
     }
-    Ok((gas, tokens))
+    Ok(gas)
 }
 
 fn tgas(gas: u128) -> f64 {
@@ -355,13 +426,13 @@ async fn main() -> anyhow::Result<()> {
         &["pay", "--id", "B-RELAY", "--share", "0"],
     );
     let relayed = submit(&env, &signed);
-    let (g, t) = tx_gas(
+    let g = tx_gas(
         &env.worker.rpc_addr(),
         relayed["tx_hash"].as_str().expect("tx hash"),
         env.relayer.id().as_str(),
     )
     .await?;
-    ops.push(("relayed ft_transfer_call".into(), g, t));
+    ops.push(("relayed ft_transfer_call".into(), g, g * gas_price));
 
     // Relayed adjudication.
     create(&env, "B-RELAY-ADJ", None).await?;
@@ -383,13 +454,13 @@ async fn main() -> anyhow::Result<()> {
         ],
     );
     let relayed = submit(&env, &signed);
-    let (g, t) = tx_gas(
+    let g = tx_gas(
         &env.worker.rpc_addr(),
         relayed["tx_hash"].as_str().expect("tx hash"),
         env.relayer.id().as_str(),
     )
     .await?;
-    ops.push(("relayed adjudicate_share".into(), g, t));
+    ops.push(("relayed adjudicate_share".into(), g, g * gas_price));
 
     // The contract must hold nothing.
     let held = balance(&env.token, env.pay.id().as_str()).await?;
@@ -400,6 +471,18 @@ async fn main() -> anyhow::Result<()> {
         .await?
         .balance
         .as_yoctonear();
+
+    let scale_rows = scale(&[10, 100, 1000]).await?;
+    if std::env::var("CLINICPAY_SAVE_SCAN_BASELINE").is_ok() {
+        std::fs::write(
+            SCAN_BASELINE,
+            serde_json::to_string_pretty(&rows_to_json(&scale_rows))? + "\n",
+        )?;
+        println!("saved scan baseline to {SCAN_BASELINE}");
+    }
+    let baseline: Option<Vec<Value>> = std::fs::read_to_string(SCAN_BASELINE)
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok());
 
     let near = |t: u128| t as f64 / NEAR as f64;
     let usd = |t: u128| rate.map(|r| near(t) * r);
@@ -434,7 +517,7 @@ async fn main() -> anyhow::Result<()> {
     }
     let storage_cost = bytes * YOCTO_PER_BYTE;
     md.push_str(&format!(
-        "\n**Storage:** {} bytes per invoice → {} NEAR at 1e19 yocto/byte{}.\n\n",
+        "\n**Storage:** {} bytes per invoice → {:.9} NEAR at 1e19 yocto/byte{}.\n\n",
         bytes,
         near(storage_cost),
         usd(storage_cost)
@@ -442,6 +525,58 @@ async fn main() -> anyhow::Result<()> {
             .unwrap_or_default()
     ));
     md.push_str(&format!("**Custody:** ClinicPay's token balance after every flow: {held} tUSDC. Its NEAR balance is {:.4} NEAR, which is the account's own storage and gas float, not customer money.\n\n", near(held_near)));
+    md.push_str("## Scale: `list_invoices` for one clinic\n\n");
+    md.push_str("One clinic owns 2 invoices; one other clinic owns the rest. `list_invoices(clinic)` is sent as a transaction (a view call reports no gas) with the default page, so it always returns the same 2 invoices and the only thing that changes is how many invoices the contract holds. *Scan* is the original implementation (walk every invoice, filter by payee), measured before the per-clinic index was added and saved in `contract/examples/scale_scan_baseline.json`. *Index* is the current code (`by_payee`). `create_invoice` is the gas of the last invoice created at that size, by the busy clinic.\n\n");
+    md.push_str("| Invoices on contract | list_invoices scan (Tgas) | list_invoices index (Tgas) | create_invoice scan (Tgas) | create_invoice index (Tgas) |\n| ---: | ---: | ---: | ---: | ---: |\n");
+    let base = |i: usize, k: &str| -> Option<f64> {
+        baseline
+            .as_ref()?
+            .get(i)?
+            .get(k)?
+            .as_str()?
+            .parse::<u128>()
+            .ok()
+            .map(tgas)
+    };
+    let base_ok = |i: usize| -> bool {
+        baseline
+            .as_ref()
+            .and_then(|b| b.get(i))
+            .and_then(|r| r.get("list_ok"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true)
+    };
+    let cell = |g: Option<f64>, ok: bool| match g {
+        Some(g) if ok => format!("{g:.3}"),
+        Some(g) => format!("{g:.3} (call failed)"),
+        None => "n/a".to_string(),
+    };
+    for (i, r) in scale_rows.iter().enumerate() {
+        md.push_str(&format!(
+            "| {} | {} | {} | {} | {:.3} |\n",
+            r.size,
+            cell(base(i, "list_gas"), base_ok(i)),
+            cell(Some(tgas(r.list_gas)), r.list_ok),
+            cell(base(i, "create_gas"), true),
+            tgas(r.create_gas)
+        ));
+    }
+    let bytes_of = |i: usize| -> Option<f64> {
+        baseline.as_ref()?.get(i)?.get("bytes_per_invoice")?.as_f64()
+    };
+    if let (Some(last), Some(old)) = (scale_rows.last(), bytes_of(scale_rows.len() - 1)) {
+        md.push_str(&format!(
+            "\n**Extra storage per invoice from the index:** {:.1} bytes (scan {:.1} → index {:.1} bytes per invoice, averaged over the last {} invoices, 13-character ids, {} yocto/byte). One `by_payee` entry per invoice: the id string plus its length prefix.\n\n",
+            last.bytes_per_invoice - old,
+            old,
+            last.bytes_per_invoice,
+            last.size - scale_rows[scale_rows.len() - 2].size,
+            YOCTO_PER_BYTE
+        ));
+    } else {
+        md.push_str("\n*No scan baseline saved, so there is no scan column or storage delta.*\n\n");
+    }
+    md.push_str("The index makes `list_invoices` independent of how many other invoices exist, but `by_payee` stores one `Vec` per clinic: each `list_invoices` page and each `create_invoice` by that clinic reads and rewrites that clinic's whole id list, so a single very large clinic still grows linearly in those two calls (see the create_invoice columns).\n\n");
     md.push_str("## Comparison (indicative, different units)\n\n");
     md.push_str("| Cost | Amount | Source |\n| --- | --- | --- |\n");
     md.push_str("| Card-not-present fee on a $50 co-pay | ~$1.75 (2.9% + $0.30) | Stripe list pricing, illustrative |\n");
@@ -469,6 +604,16 @@ async fn main() -> anyhow::Result<()> {
             "{name:28} {:>10.3} Tgas  {:.9} NEAR",
             tgas(*gas),
             near(*tokens)
+        );
+    }
+    for r in &scale_rows {
+        println!(
+            "scale {:>5} invoices: list {:>9.3} Tgas{}  create {:>7.3} Tgas  {:.1} bytes/invoice",
+            r.size,
+            tgas(r.list_gas),
+            if r.list_ok { "" } else { " (FAILED)" },
+            tgas(r.create_gas),
+            r.bytes_per_invoice
         );
     }
     println!("wrote docs/BENCHMARKS.md");

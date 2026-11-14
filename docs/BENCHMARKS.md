@@ -10,18 +10,32 @@ Local NEAR sandbox, one 5-unit invoice per operation. Gas is `total_gas_burnt` f
 
 | Operation | Gas (Tgas) | Cost (NEAR) | Cost (USD) |
 | --- | ---: | ---: | ---: |
-| create_invoice | 2.226 | 0.000222648 | $0.00069 |
-| pay_share (NEAR) | 4.977 | 0.000497668 | $0.00155 |
-| ft_transfer_call (token) | 11.274 | 0.001127413 | $0.00352 |
-| adjudicate_share | 2.218 | 0.000221795 | $0.00069 |
-| refund_share | 4.965 | 0.000496522 | $0.00155 |
-| cancel_invoice | 2.067 | 0.000206733 | $0.00065 |
-| relayed ft_transfer_call | 12.438 | 0.001109894 | $0.00346 |
-| relayed adjudicate_share | 3.386 | 0.000293919 | $0.00092 |
+| create_invoice | 2.404 | 0.000240366 | $0.00075 |
+| pay_share (NEAR) | 5.024 | 0.000502399 | $0.00157 |
+| ft_transfer_call (token) | 11.321 | 0.001132136 | $0.00353 |
+| adjudicate_share | 2.242 | 0.000224163 | $0.00070 |
+| refund_share | 5.013 | 0.000501253 | $0.00156 |
+| cancel_invoice | 2.091 | 0.000209098 | $0.00065 |
+| relayed ft_transfer_call | 12.485 | 0.001248527 | $0.00390 |
+| relayed adjudicate_share | 3.409 | 0.000340923 | $0.00106 |
 
-**Storage:** 413 bytes per invoice → 0.00413 NEAR at 1e19 yocto/byte ($0.01289).
+**Storage:** 517 bytes per invoice → 0.005170000 NEAR at 1e19 yocto/byte ($0.01613).
 
 **Custody:** ClinicPay's token balance after every flow: 0 tUSDC. Its NEAR balance is 99.9998 NEAR, which is the account's own storage and gas float, not customer money.
+
+## Scale: `list_invoices` for one clinic
+
+One clinic owns 2 invoices; one other clinic owns the rest. `list_invoices(clinic)` is sent as a transaction (a view call reports no gas) with the default page, so it always returns the same 2 invoices and the only thing that changes is how many invoices the contract holds. *Scan* is the original implementation (walk every invoice, filter by payee), measured before the per-clinic index was added and saved in `contract/examples/scale_scan_baseline.json`. *Index* is the current code (`by_payee`). `create_invoice` is the gas of the last invoice created at that size, by the busy clinic.
+
+| Invoices on contract | list_invoices scan (Tgas) | list_invoices index (Tgas) | create_invoice scan (Tgas) | create_invoice index (Tgas) |
+| ---: | ---: | ---: | ---: | ---: |
+| 10 | 3.618 | 2.094 | 2.246 | 2.470 |
+| 100 | 20.524 | 2.094 | 2.255 | 2.721 |
+| 1000 | 192.122 | 2.094 | 2.266 | 5.123 |
+
+**Extra storage per invoice from the index:** 17.0 bytes (scan 423.0 → index 440.0 bytes per invoice, averaged over the last 900 invoices, 13-character ids, 10000000000000000000 yocto/byte). One `by_payee` entry per invoice: the id string plus its length prefix.
+
+The index makes `list_invoices` independent of how many other invoices exist, but `by_payee` stores one `Vec` per clinic: each `list_invoices` page and each `create_invoice` by that clinic reads and rewrites that clinic's whole id list, so a single very large clinic still grows linearly in those two calls (see the create_invoice columns).
 
 ## Comparison (indicative, different units)
 
@@ -30,7 +44,7 @@ Local NEAR sandbox, one 5-unit invoice per operation. Gas is `total_gas_burnt` f
 | Card-not-present fee on a $50 co-pay | ~$1.75 (2.9% + $0.30) | Stripe list pricing, illustrative |
 | CAQH claim payment, manual | $3.48 per transaction | CAQH Index 2024, claim payment |
 | CAQH claim payment, electronic | $1.85 per transaction | CAQH Index 2024, claim payment |
-| ClinicPay stablecoin settlement | 0.001127413 NEAR (~$0.00352) | this benchmark |
+| ClinicPay stablecoin settlement | 0.001132136 NEAR (~$0.00353) | this benchmark |
 
 Sources: CAQH Index 2024 <https://caqh.org/hubfs/Index/CAQH_IndexReport_2024_FINAL.pdf>; Stripe pricing <https://stripe.com/pricing>; NEAR protocol config for the 1e8 yocto/gas minimum. Card and CAQH figures are industry cost benchmarks, not fees ClinicPay charges. The comparison is here to show order of magnitude, not to claim a like-for-like saving.
 

@@ -5,7 +5,7 @@
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
-Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 83 passing (40 unit, 15 sandbox e2e on a real local NEAR node, 28 CLI/relayer/benchmark).
+Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 84 passing (41 unit, 15 sandbox e2e on a real local NEAR node, 28 CLI/relayer/benchmark).
 
 Fastest verification:
 
@@ -350,7 +350,7 @@ it the report stays in NEAR.
 - The insurer chooses which open share absorbs an adjustment (normally the patient's,
   but it could be an employer scheme's). A production version would let the clinic
   mark, per invoice, which share takes adjustments.
-- `list_invoices` scans all invoices (fine at demo scale; needs an index at volume).
+- `list_invoices` pages a per-clinic index, so its gas is flat in how many other clinics' invoices exist (2.09 Tgas at 10, 100 and 1,000 invoices; see `docs/BENCHMARKS.md`). A single clinic with a very large list still pays to rewrite that list on create and read it on page (5.1 Tgas at 1,000).
 - `create_invoice` charges no storage deposit, so invoice state is subsidised by the
   contract account; a production deployment should charge one.
 - A reverted payout is refunded with a plain transfer. If the payer account no longer

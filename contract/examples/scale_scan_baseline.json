@@ -1,0 +1,23 @@
+[
+  {
+    "size": 10,
+    "list_gas": "3618077915502",
+    "list_ok": true,
+    "create_gas": "2245746766531",
+    "bytes_per_invoice": 423.0
+  },
+  {
+    "size": 100,
+    "list_gas": "20523576316650",
+    "list_ok": true,
+    "create_gas": "2254866766531",
+    "bytes_per_invoice": 423.0
+  },
+  {
+    "size": 1000,
+    "list_gas": "192121562546634",
+    "list_ok": true,
+    "create_gas": "2266266766531",
+    "bytes_per_invoice": 423.0
+  }
+]
