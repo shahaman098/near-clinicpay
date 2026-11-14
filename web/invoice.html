@@ -18,6 +18,14 @@
   .Paid { color:var(--ok); } .PartiallyPaid,.Open { color:var(--warn); } .Overdue,.Cancelled,.Refunded { color:var(--bad); }
   table { width:100%; border-collapse:collapse; margin:16px 0; } th,td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
   td.n,th.n { text-align:right; font-variant-numeric:tabular-nums; }
+  .settle { margin:18px 0 6px; }
+  .bar { height:8px; background:var(--line); border-radius:99px; overflow:hidden; }
+  .bar span { display:block; height:100%; width:0; background:var(--ok); transition:width .35s ease; }
+  h2 { font-size:1rem; margin:24px 0 6px; }
+  .timeline { list-style:none; padding:0; margin:0; }
+  .timeline li { padding:8px 0; border-bottom:1px solid var(--line); display:flex; gap:12px; }
+  .timeline time { color:var(--mut); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .timeline .amt { margin-left:auto; white-space:nowrap; font-variant-numeric:tabular-nums; }
   code,pre { font:13px ui-monospace,monospace; } pre { white-space:pre-wrap; word-break:break-all; background:var(--line); padding:10px; border-radius:8px; margin:6px 0 0; }
   #err { color:var(--bad); } form { display:grid; gap:8px; grid-template-columns:1fr 1fr; margin:16px 0; } input,button { font:inherit; padding:8px; }
   @media (max-width:520px) { form { grid-template-columns:1fr; } }
@@ -31,8 +39,18 @@
   <section id="out" hidden>
     <h1 id="title"></h1>
     <p class="mut" id="meta"></p>
+    <div class="settle">
+      <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="bar">
+        <span id="bar-fill"></span>
+      </div>
+      <p class="mut" id="progress"></p>
+    </div>
     <table><thead><tr><th>Item</th><th class="n cur">NEAR</th></tr></thead><tbody id="lines"></tbody></table>
     <table><thead><tr><th>Share</th><th>State</th><th class="n cur">NEAR</th></tr></thead><tbody id="shares"></tbody></table>
+    <section id="settlement" hidden>
+      <h2>Settlement</h2>
+      <ol class="timeline" id="timeline"></ol>
+    </section>
     <p class="mut" id="custody"></p>
     <p class="mut">Nothing here can move funds; pay with your own wallet using the command shown under an open share.</p>
   </section>
@@ -68,6 +86,13 @@ async function show(contract, id) {
     document.getElementById("title").replaceChildren(document.createTextNode(`Invoice ${inv.id} `), el("span", status, `badge ${status}`));
     document.getElementById("meta").textContent = `${inv.payee}${inv.memo ? " · " + inv.memo : ""}${inv.due_ms ? " · due " + when(inv.due_ms) : ""} · paid in ${inv.token ? `${meta.symbol} (token ${inv.token})` : "NEAR"}`;
     const total = inv.lines.reduce((a, l) => a + BigInt(l.amount), 0n);
+    const paid = inv.shares.filter((s) => s.state === "Paid").reduce((a, s) => a + BigInt(s.amount), 0n);
+    const pct = total === 0n ? 0 : Number((paid * 100n) / total);
+    const paidCount = inv.shares.filter((s) => s.state === "Paid").length;
+    document.getElementById("bar").setAttribute("aria-valuenow", String(pct));
+    document.getElementById("bar-fill").style.width = `${pct}%`;
+    document.getElementById("progress").textContent =
+      `${amt(paid)} of ${amt(total)} ${meta.symbol} settled · ${paidCount} of ${inv.shares.length} share${inv.shares.length === 1 ? "" : "s"} paid`;
     const L = document.getElementById("lines"); L.replaceChildren(
       ...inv.lines.map((l) => row([el("td", l.description), el("td", amt(l.amount), "n")])),
       row([el("th", "Total"), el("th", amt(total), "n")]));
@@ -86,10 +111,23 @@ async function show(contract, id) {
       }
       S.append(row([first, state, el("td", amt(s.amount), "n")]));
     });
+    const events = [];
+    inv.shares.forEach((s, i) => {
+      if (s.paid_at_ms) events.push({ t: Number(s.paid_at_ms), text: `Share #${i} ${s.label} paid by ${s.paid_by}`, amount: s.amount });
+      if (s.refunded_at_ms) events.push({ t: Number(s.refunded_at_ms), text: `Share #${i} ${s.label} refunded`, amount: s.amount });
+    });
+    events.sort((a, b) => a.t - b.t);
+    const tl = document.getElementById("timeline");
+    tl.replaceChildren(...events.map((e) => {
+      const li = document.createElement("li");
+      li.append(el("time", when(e.t)), el("span", e.text), el("span", `${fmt(e.amount, meta.decimals)} ${meta.symbol}`, "amt"));
+      return li;
+    }));
+    document.getElementById("settlement").hidden = events.length === 0;
     const custody = document.getElementById("custody");
     if (inv.token) {
       const held = await view(inv.token, "ft_balance_of", { account_id: contract });
-      custody.textContent = `ClinicPay contract holds ${fmt(held, meta.decimals)} ${meta.symbol}. Each payment was forwarded to the clinic; nothing is custodied.`;
+      custody.textContent = `ClinicPay contract holds ${fmt(held, meta.decimals)} ${meta.symbol}. Payments are forwarded to the clinic on success and refunded to the payer on failure.`;
     } else {
       custody.textContent = "ClinicPay never holds customer funds: each share is forwarded to the clinic in the same transaction.";
     }
