@@ -5,13 +5,13 @@
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
-Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 47 passing (27 unit, 8 sandbox e2e, 12 CLI/benchmark).
+Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 74 passing (39 unit, 13 sandbox e2e on a real local NEAR node, 22 CLI/relayer/benchmark).
 
 Fastest verification:
 
 ```sh
-npm test && (cd contract && cargo test)   # 47 tests, no keys, no network funds
-cd contract && cargo run --example demo   # settles two invoices, then shows a refund
+npm test && (cd contract && cargo test)   # 74 tests, no keys, no network funds
+cd contract && cargo run --example demo   # NEAR + stablecoin invoices, a rollback, insurer adjudication, a gasless payment
 ```
 
 ## The problem
@@ -36,8 +36,21 @@ who paid what and when. Refunds are another manual round trip.
 - If forwarding to the clinic fails, the payment is **rolled back and the payer is
   refunded** automatically (tested for NEAR and for tokens; for tokens the refund goes
   through the token's own `ft_resolve_transfer`, so nothing is ever stuck in ClinicPay).
+- **The insurer adjudicates on chain.** Before paying, the insurer named on a share
+  records its claim decision with `adjudicate_share`: approve all, part (with a reason
+  code such as `CO-45 charge exceeds fee schedule`) or nothing. The unapproved part
+  moves to another open share, normally the patient's, so the shares still add up to
+  the bill and the clinic is still paid in full. The decision is signed by the insurer,
+  final, kept on the share (billed vs approved), and emitted as `share_adjudicated`.
+  Paid shares never change.
+- **Patients pay without holding NEAR.** A stablecoin share can be paid gaslessly: the
+  patient signs a NEP-366 delegate action, and the ClinicPay relayer (`relayer/`) pays
+  the gas and submits it. The relayer only pays for ClinicPay calls and checks the
+  share on chain first. In the sandbox tests the patient's NEAR balance changes by
+  exactly 0.
 - A zero-dependency **CLI** reads invoices straight from chain and exports an
-  **accountant-ready CSV** (one row per share).
+  **accountant-ready CSV** (one row per share, with billed vs approved amounts and the
+  adjudication reason).
 
 ## How NEAR is used
 
@@ -45,6 +58,8 @@ who paid what and when. Refunds are another manual round trip.
 | --- | --- |
 | `contract/src/lib.rs` | Rust contract on `near-sdk` 5: payable calls, `Promise` transfers, callbacks (`on_payout`, `on_refund`) for atomic rollback, NEP-297 event logs |
 | `ft_on_transfer` | NEP-141 receiver: a stablecoin payment arrives via `ft_transfer_call`, is forwarded to the clinic with `ft_transfer`, and the callback (`on_ft_payout` / `on_ft_refund`) returns the unused amount so the token refunds the sender if the forward fails |
+| `adjudicate_share` | the insurer's own account signs its claim decision; the predecessor check is the authorization |
+| `relayer/` | NEP-366 meta transactions: payer-signed `DelegateAction`, relayer-signed transaction with `Action::Delegate`, hand-written borsh + ed25519 on Node's standard library, `send_tx` JSON-RPC |
 | `cli/` | NEAR JSON-RPC `query` / `call_function` views (no SDK needed) |
 | tests | `near-workspaces` sandbox: the real wasm runs on a real local NEAR node |
 
@@ -54,8 +69,10 @@ invoices (USDC has 6 decimals, so 10 USDC is `10000000`).
 ### How one share is paid
 
 ```
+ insurer ── adjudicate_share ──► approves 30 of 40, 10 moves to the patient's share
  patient ── pay_share (NEAR) ─────────┐
  insurer ── ft_transfer_call (token) ─┤
+ patient ── signed delegate ► relayer ┤   (gasless: relayer pays gas, patient pays 0 NEAR)
                                       ▼
                                   ClinicPay ── forward in the same tx ──► clinic
                                       │
@@ -75,10 +92,11 @@ funds needed: everything below runs on a local sandbox node.
 
 1. **Run all tests.**
    ```sh
-   npm test                      # 12 tests: CLI against a mock RPC node + price benchmark
-   cd contract && cargo test     # 27 unit tests + 4 NEAR sandbox tests + 4 stablecoin sandbox tests
+   npm test                      # 22 tests: CLI (mock RPC node), relayer policy + encoding, benchmark
+   cd contract && cargo test     # 39 unit + 4 NEAR sandbox + 5 stablecoin sandbox + 4 gasless sandbox
    ```
-   You should see `test result: ok. 27 passed`, then `ok. 4 passed` twice.
+   You should see `test result: ok. 39 passed`, then `ok. 4 passed`, `ok. 5 passed`,
+   `ok. 4 passed`.
    - `tests/sandbox.rs` (NEAR): deploys the wasm, creates an invoice, pays it from two
      accounts, asserts the clinic's balance rose by exactly 5 NEAR and that the
      contract kept nothing, refunds a share, and kills the clinic account to prove a
@@ -90,6 +108,15 @@ funds needed: everything below runs on a local sandbox node.
      stays 0. With the clinic not registered on the token, the payment is reverted
      (`payment_reverted` event) and the patient gets all 10 back. A wrong amount or
      wrong payer is returned in full. A clinic refund returns the tokens to the patient.
+     The insurer adjudicates 40 down to 30 on chain; paying the old 40 is returned in
+     full, then insurer 30 + patient 20 settle it and the clinic still gets exactly 50.
+   - `tests/sandbox_relayer.rs` (gasless): runs `relayer/payer.mjs` and
+     `relayer/relayer.mjs` as real processes against the node. The patient pays a tUSDC
+     share with a signed delegate; their NEAR balance is unchanged to the yoctoNEAR,
+     `paid_by` is the patient (not the relayer), and the relayer's balance drops. The
+     insurer adjudicates gaslessly too. The relayer refuses a patient paying the
+     insurer's named share and malformed input without spending anything, and a
+     replayed delegate moves no money.
 
 2. **Run the live demo** (starts a local node and leaves it running):
    ```sh
@@ -100,12 +127,16 @@ funds needed: everything below runs on a local sandbox node.
    `INV-2026-0043` (a 50 tUSDC invoice paid through a local 6-decimal test token),
    and then a failure: `INV-2026-0044` is created on a second token the clinic is not
    registered for, the forward fails, `payment_reverted` is emitted and the patient
-   keeps their 10 tUSDC.
+   keeps their 10 tUSDC. Then `INV-2026-0045`: the insurer approves 30 of 40 tUSDC on
+   chain (`share_adjudicated`, reason `CO-45`), 10 moves to the patient, both pay, the
+   clinic gets 50. Last, `INV-2026-0046`: the patient pays their co-pay through the
+   relayer and the demo prints the change in their NEAR balance: 0.
 
 3. **Read it back** with the commands the demo prints, from the repo root:
    ```sh
    node cli/clinicpay.mjs status --contract <contract> --id INV-2026-0042 --rpc <rpc-url>
    node cli/clinicpay.mjs status --contract <contract> --id INV-2026-0043 --rpc <rpc-url>
+   node cli/clinicpay.mjs status --contract <contract> --id INV-2026-0045 --rpc <rpc-url>
    node cli/clinicpay.mjs export --contract <contract> --clinic <clinic> --rpc <rpc-url>
    ```
    `status` shows `PartiallyPaid`, the paid co-pay with payer and timestamp, the open
@@ -113,7 +144,9 @@ funds needed: everything below runs on a local sandbox node.
    mainnet` when the contract lives there; the demo's sandbox port is not a near-cli
    network, so that command is for a real deployment). The second invoice
    shows `50 tUSDC` with its token contract, read from the token's `ft_metadata`.
-   `export` prints the CSV with a `currency` column.
+   `INV-2026-0045` shows the insurer's line `billed 40, approved 30 tUSDC ("CO-45 …");
+   10 tUSDC moved to share #0`. `export` prints the CSV with `currency`,
+   `billed_amount`, `approved_amount` and `adjustment_reason` columns.
 
 4. **Build the wasm** for deployment: `npm run build:wasm`
    (`contract/target/wasm32-unknown-unknown/release/clinicpay.wasm`).
@@ -127,10 +160,11 @@ funds needed: everything below runs on a local sandbox node.
 | `refund_share(invoice_id, share_index)` | clinic, `#[payable]` | NEAR invoices: attach the share amount; goes to the original payer |
 | token `ft_transfer_call(receiver_id = ClinicPay, amount, msg)` | payer | token invoices: `msg` = `{"invoice_id":"…","share_index":0}`, exact share amount, 1 yoctoNEAR, ~100 Tgas |
 | token `ft_transfer_call(…, msg)` with `"action":"refund"` | clinic | token invoices: the share amount goes back to the original payer |
+| `adjudicate_share(invoice_id, share_index, approved, reason, move_to?)` | the share's named payer (insurer) | once, while the share is Open; `approved` ≤ billed; the rest moves to open share `move_to`; `approved = 0` marks the share `Denied` |
 | `cancel_invoice(invoice_id)` | clinic | only while nothing is paid |
 | `get_invoice`, `get_status`, `list_invoices` | view | status: Open, PartiallyPaid, Paid, Refunded, Overdue, Cancelled |
 
-Status rules: a refunded share counts as closed, so an invoice is `Paid` once no
+Status rules: a refunded or denied share counts as closed, so an invoice is `Paid` once no
 share is `Open` (even if one was refunded instead); `Overdue` takes precedence over
 `PartiallyPaid` when the due date has passed.
 
@@ -158,6 +192,36 @@ token invoice, `status` prints the `ft_transfer_call` command that pays it.
 Before a token invoice can be paid, **ClinicPay's account and the clinic's account
 must each be registered on the token** (`storage_deposit`). If the clinic is not
 registered, payments are reverted and refunded (that is the rollback test above).
+
+### Gasless payments (NEP-366 relayer)
+
+```sh
+# relayer (key from the environment only; pays gas for ClinicPay calls and nothing else)
+RELAYER_ACCOUNT_ID=relayer.testnet RELAYER_PRIVATE_KEY=ed25519:... \
+  node relayer/relayer.mjs serve --contract <clinicpay> --token <usdc-contract> --port 3030
+
+# payer: signs a delegate action for their share and posts it; spends the share in USDC and 0 NEAR
+PAYER_ACCOUNT_ID=patient.testnet PAYER_PRIVATE_KEY=ed25519:... \
+  node relayer/payer.mjs pay --contract <clinicpay> --id INV-8 --share 0 --relayer http://localhost:3030
+
+# insurer: records its claim decision without gas
+PAYER_ACCOUNT_ID=insurer.testnet PAYER_PRIVATE_KEY=ed25519:... \
+  node relayer/payer.mjs adjudicate --contract <clinicpay> --id INV-8 --share 1 \
+  --approved 30000000 --reason "CO-45 charge exceeds fee schedule" --move-to 0 --relayer http://localhost:3030
+```
+
+What the relayer pays for (`relayer/policy.mjs`), one function call per delegate:
+`adjudicate_share` on ClinicPay with no deposit, or `ft_transfer_call` on a listed token
+with `receiver_id` = ClinicPay, 1 yoctoNEAR, a ClinicPay payment `msg`, ≤150 Tgas and a
+delegate valid for ≤1000 blocks. Before building a transaction it reads the invoice and
+refuses unless the share is open, the sender is its named payer (if any), and the
+amount matches exactly, so calls that would fail cannot drain it.
+
+Found while testing, and why NEAR invoices are not relayed: under NEP-366 the
+**relayer** funds any deposit attached inside the delegate, not the signer. A relayed
+`pay_share` would pay the clinic with the relayer's NEAR. The first version of the
+sandbox test caught this (the patient's balance did not move, the relayer's dropped by
+1 NEAR), so `pay_share` is refused and NEAR shares are paid directly.
 
 ### Check a price against NHS national costs (optional)
 
@@ -193,24 +257,33 @@ Open Government Licence v3.0. The tool is offline and read-only. The bands
 - NEAR and token paths cannot be mixed: `pay_share` / `refund_share` reject token
   invoices, and `ft_on_transfer` rejects NEAR invoices.
 - Exact-amount deposits only; a named share can only be paid by its named account.
-- Invoices are immutable: there is no update path, so line items, shares and payers cannot be
-  re-pointed after creation. A refund always targets the account that paid.
+- Line items, payers and the payee never change after creation. The only change to
+  amounts is `adjudicate_share`: signed by the share's named payer, once, only on open
+  shares, and the shares must still sum to the bill (checked on chain). A refund always
+  targets the account that paid.
+- Failed calls report their reason on chain (e.g. `this share must be paid by its
+  named payer`): the wasm is built with `--cfg near` (`.cargo/config.toml`), which
+  `near-sdk` needs to route panics to the host.
 - Only the clinic that created an invoice can refund or cancel it.
-- No keys in this repo. The CLI is read-only.
+- No keys in this repo. The CLI is read-only. The relayer and payer tools read keys
+  from environment variables only and never print them.
 
 ## Limitations (honest)
 
 - Stablecoin settlement is tested with a local test token (6 decimals, like USDC), not
   with the real USDC contract, because nothing here is deployed to testnet or mainnet.
   Any standard NEP-141 token works the same way.
-- No meta-transaction relayer yet, so payers still need a little NEAR for gas. No
-  NEAR Intents yet, so payers need the token on NEAR (no cross-chain payment).
+- Gasless payment covers stablecoin shares and adjudication. NEAR-priced shares are
+  paid directly (see above). The relayer has no rate limit or per-account budget yet;
+  a production relayer needs one. Payer accounts must exist on NEAR and hold the
+  token. No NEAR Intents yet, so payers need the token on NEAR (no cross-chain
+  payment).
 - The NHS benchmark is an England-wide 2025/26 national average, not a negotiated
   tariff, and it is advisory: it informs the clinic before invoicing, and the contract
   does not read it.
-- `cargo run --example demo` shows both flows and one failure: the NEAR invoice, the
-  stablecoin invoice paid through a local 6-decimal test token, then a payment the
-  clinic cannot receive, which is reverted and refunded. `tests/sandbox_ft.rs` proves
+- `cargo run --example demo` shows the NEAR invoice, the stablecoin invoice paid
+  through a local 6-decimal test token, a payment the clinic cannot receive (reverted
+  and refunded), an insurer adjudication, and a gasless payment. `tests/sandbox_ft.rs` proves
   the other failure cases (wrong amount or wrong payer); `tests/sandbox.rs` proves a
   failed NEAR payout.
 - `list_invoices` scans all invoices (fine at demo scale; needs an index at volume).
@@ -235,7 +308,9 @@ Open Government Licence v3.0. The tool is offline and read-only. The bands
 - `near-sdk` 5.30, `near-workspaces` 0.24 (dev only), `tokio`, `serde_json`, `anyhow`.
 - `test-token/`: `near-contract-standards` 5.30 fungible-token implementation, used only
   by the sandbox tests.
-- CLI, page and benchmark: Node standard library and browser APIs only.
+- CLI, relayer, page and benchmark: Node standard library and browser APIs only
+  (the relayer's borsh, base58 and ed25519 signing are written against
+  `near-primitives` 0.38 layouts and verified by the sandbox node accepting them).
 - `bench/nhs_outpatient_procedures_2025_26.csv`: extracted from the NHS England
   National Cost Collection (National Schedule of NHS costs 2025/26, Outpatient
   Procedures), licensed under the Open Government Licence v3.0.
@@ -248,7 +323,9 @@ Open Government Licence v3.0. The tool is offline and read-only. The bands
 ```
 contract/src/lib.rs        the NEAR contract + unit tests
 contract/tests/sandbox.rs  end-to-end tests on a local NEAR node (NEAR invoices)
-contract/tests/sandbox_ft.rs  end-to-end tests with a NEP-141 token (stablecoin invoices)
+contract/tests/sandbox_ft.rs  end-to-end tests with a NEP-141 token (stablecoin invoices, adjudication)
+contract/tests/sandbox_relayer.rs  end-to-end gasless payments through the relayer
+relayer/                   NEP-366 relayer (policy, serve/submit) + payer signer + tests
 test-token/                minimal NEP-141 test token for those tests (no value)
 contract/examples/demo.rs  live local demo
 cli/                       read-only CLI + tests

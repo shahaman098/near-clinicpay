@@ -86,6 +86,24 @@ async fn deploy_token(
     Ok(token)
 }
 
+/// Run relayer/<script> from the repo root with one account's key in the environment.
+fn node(script: &str, args: &[&str], who: &str, account: &Account) -> anyhow::Result<String> {
+    let out = Command::new("node")
+        .current_dir("..")
+        .arg(format!("relayer/{script}"))
+        .args(args)
+        .env(format!("{who}_ACCOUNT_ID"), account.id().as_str())
+        .env(format!("{who}_PRIVATE_KEY"), account.secret_key().to_string())
+        .output()?;
+    anyhow::ensure!(
+        out.status.success(),
+        "{script} failed: {}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let wasm = build(
@@ -302,6 +320,54 @@ async fn main() -> anyhow::Result<()> {
         "10. insurer paid 30, patient paid 20: INV-2026-0045 is Paid and the clinic got the full 50 \
          (contract holds {} tUSDC)\n",
         balance(&token, contract.id().as_str()).await? / USD
+    );
+
+    // ---- gasless: the patient pays a stablecoin share with no NEAR at all ------
+    let relayer = worker.dev_create_account().await?;
+    clinic
+        .call(contract.id(), "create_invoice")
+        .args_json(json!({
+            "id": "INV-2026-0046",
+            "memo": "Physio follow-up 14 Nov, gasless co-pay",
+            "lines": [{"description": "Physiotherapy session", "amount": (60 * USD).to_string()}],
+            "shares": [
+                {"label": "Patient co-pay", "payer": patient.id(), "amount": (10 * USD).to_string()},
+                {"label": "Insurer", "payer": insurer.id(), "amount": (50 * USD).to_string()}
+            ],
+            "due_ms": null,
+            "token": token.id()
+        }))
+        .transact()
+        .await?
+        .into_result()?;
+    fund(&token, &patient, 10 * USD).await?;
+    println!("11. clinic created INV-2026-0046 (60 tUSDC); relayer account: {}", relayer.id());
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    let near_before = patient.view_account().await?.balance;
+    let signed = node(
+        "payer.mjs",
+        &["pay", "--contract", contract.id().as_str(), "--rpc", rpc.as_str(), "--id", "INV-2026-0046", "--share", "0"],
+        "PAYER",
+        &patient,
+    )?;
+    println!("12. patient signed a NEP-366 delegate action offline ({} bytes, base64)", signed.len());
+    let out = node(
+        "relayer.mjs",
+        &["submit", "--contract", contract.id().as_str(), "--token", token.id().as_str(), "--rpc", rpc.as_str(), &signed],
+        "RELAYER",
+        &relayer,
+    )?;
+    let r: Value = serde_json::from_str(&out)?;
+    for l in r["logs"].as_array().into_iter().flatten() {
+        println!("   on-chain receipt: {}", l.as_str().unwrap_or_default());
+    }
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    let near_after = patient.view_account().await?.balance;
+    println!(
+        "13. relayer submitted it (tx {}); the patient's NEAR balance changed by {} yoctoNEAR: \
+         the relayer paid the gas\n",
+        r["tx_hash"].as_str().unwrap_or("?"),
+        near_before.as_yoctonear() as i128 - near_after.as_yoctonear() as i128
     );
 
     println!("Read it back (new terminal, from the repo root):");

@@ -63,7 +63,7 @@
       <ol class="timeline" id="timeline"></ol>
     </section>
     <p class="mut" id="custody"></p>
-    <p class="mut">Nothing here can move funds; pay with your own wallet using the command shown under an open share.</p>
+    <p class="mut">Nothing here can move funds; pay with your own wallet (or gaslessly through a relayer) using the command shown under an open share.</p>
   </section>
 </main>
 <script>
@@ -128,6 +128,10 @@ async function show(contract, id) {
           ? `near contract call-function as-transaction ${inv.token} ft_transfer_call json-args '${JSON.stringify({ receiver_id: contract, amount: s.amount, msg: JSON.stringify({ invoice_id: inv.id, share_index: i }) })}' prepaid-gas '100 Tgas' attached-deposit '1 yoctoNEAR' network-config ${network}`
           : `near contract call-function as-transaction ${contract} pay_share json-args '{"invoice_id":"${inv.id}","share_index":${i}}' prepaid-gas '30 Tgas' attached-deposit '${amt(s.amount)} NEAR' network-config ${network}`;
         first.append(el("pre", cmd));
+        if (inv.token) {
+          first.append(el("div", "or gasless, with no NEAR (signed delegate, relayer pays gas):", "mut"),
+            el("pre", `node relayer/payer.mjs pay --contract ${contract} --id ${inv.id} --share ${i} --relayer <relayer-url>`));
+        }
       }
       S.append(row([first, state, el("td", amt(s.amount), "n")]));
     });
