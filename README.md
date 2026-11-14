@@ -5,7 +5,7 @@
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
-Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 78 passing (39 unit, 15 sandbox e2e on a real local NEAR node, 24 CLI/relayer/benchmark).
+Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 82 passing (39 unit, 15 sandbox e2e on a real local NEAR node, 28 CLI/relayer/benchmark).
 
 Fastest verification:
 
@@ -100,7 +100,7 @@ funds needed: everything below runs on a local sandbox node.
 
 1. **Run all tests.**
    ```sh
-   npm test                      # 24 tests: CLI (mock RPC node), relayer policy + encoding, benchmark
+   npm test                      # 28 tests: CLI (mock RPC), relayer policy + encoding, benchmark
    cd contract && cargo test     # 39 unit + 4 NEAR + 5 stablecoin + 5 gasless + 1 deploy-tool sandbox tests
    ```
    You should see `test result: ok. 39 passed`, then (in file order) `ok. 4 passed`,
@@ -147,6 +147,7 @@ funds needed: everything below runs on a local sandbox node.
    node cli/clinicpay.mjs status --contract <contract> --id INV-2026-0043 --rpc <rpc-url>
    node cli/clinicpay.mjs status --contract <contract> --id INV-2026-0045 --rpc <rpc-url>
    node cli/clinicpay.mjs export --contract <contract> --clinic <clinic> --rpc <rpc-url>
+   node cli/clinicpay.mjs export-fhir --contract <contract> --id INV-2026-0045 --rpc <rpc-url>
    ```
    `status` shows `PartiallyPaid`, the paid co-pay with payer and timestamp, the open
    insurer share, and the `near` CLI command that pays it on testnet (`--network
@@ -155,7 +156,9 @@ funds needed: everything below runs on a local sandbox node.
    shows `50 tUSDC` with its token contract, read from the token's `ft_metadata`.
    `INV-2026-0045` shows the insurer's line `billed 40, approved 30 tUSDC ("CO-45 …");
    10 tUSDC moved to share #0`. `export` prints the CSV with `currency`,
-   `billed_amount`, `approved_amount` and `adjustment_reason` columns.
+   `billed_amount`, `approved_amount`, `adjustment_reason`, `adj_group` and `adj_carc`
+   columns (835-style, not X12 835). `export-fhir` prints a FHIR R4 `ClaimResponse`
+   with `submitted` and `benefit` adjudication and the CARC coding.
 
 4. **Open the clinic dashboard and invoice pages**: serve the repo
    (`python3 -m http.server 8080`) and open the two URLs the demo prints. The dashboard
@@ -292,6 +295,18 @@ extracted 2026-11-14. Contains public sector information licensed under the
 Open Government Licence v3.0. The tool is offline and read-only. The bands
 (±10% in line, ±25% notable) are a rule of thumb, not a contractual threshold.
 
+### Measure gas and storage
+
+```sh
+cd contract && cargo run --example bench -- 3.12 2026-11-14
+```
+
+Eight operations on a local sandbox (create, NEAR pay, token pay, adjudicate, refund,
+cancel, two relayed calls), gas summed over the transaction and receipts, storage per
+invoice at 1e19 yocto/byte, and a zero-custody assertion. Writes
+[`docs/BENCHMARKS.md`](docs/BENCHMARKS.md). The NEAR/USD rate is an argument; without
+it the report stays in NEAR.
+
 ## Security notes
 
 - The contract never custodies funds: payment is forwarded in the same call, and a
@@ -319,10 +334,11 @@ Open Government Licence v3.0. The tool is offline and read-only. The bands
   with the real USDC contract, because nothing here is deployed to testnet or mainnet.
   Any standard NEP-141 token works the same way.
 - Gasless payment covers stablecoin shares and adjudication. NEAR-priced shares are
-  paid directly (see above). The relayer has no rate limit or per-account budget yet;
-  a production relayer needs one. Payer accounts must exist on NEAR and hold the
-  token. No NEAR Intents yet, so payers need the token on NEAR (no cross-chain
-  payment).
+  paid directly (see above). The relayer enforces a sliding-window budget per payer and
+  globally (`RELAYER_MAX_TX_PER_PAYER`, `RELAYER_MAX_TX_GLOBAL`,
+  `RELAYER_MAX_GAS_GLOBAL`, `RELAYER_BUDGET_WINDOW_MS`); the defaults are demo-sized.
+  Payer accounts must exist on NEAR and hold the token. No NEAR Intents yet, so payers
+  need the token on NEAR (no cross-chain payment).
 - The NHS benchmark is an England-wide 2025/26 national average, not a negotiated
   tariff, and it is advisory: it informs the clinic before invoicing, and the contract
   does not read it.
