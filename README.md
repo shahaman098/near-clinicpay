@@ -1,5 +1,7 @@
 # ClinicPay
 
+[![ci](https://github.com/shahaman098/near-clinicpay/actions/workflows/ci.yml/badge.svg)](https://github.com/shahaman098/near-clinicpay/actions/workflows/ci.yml)
+
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
@@ -39,6 +41,22 @@ who paid what and when. Refunds are another manual round trip.
 
 Amounts are yoctoNEAR for NEAR invoices, or the token's smallest unit for token
 invoices (USDC has 6 decimals, so 10 USDC is `10000000`).
+
+### How one share is paid
+
+```
+ patient ── pay_share (NEAR) ─────────┐
+ insurer ── ft_transfer_call (token) ─┤
+                                      ▼
+                                  ClinicPay ── forward in the same tx ──► clinic
+                                      │
+                                      ├─ share_paid event (NEP-297)
+                                      ├─ clinic refund? ──► back to the payer
+                                      └─ forward failed? ──► state reverted, payer refunded
+```
+
+The contract is the meeting point, never the destination: a successful payment
+leaves the clinic's balance higher and ClinicPay's unchanged.
 
 ## Try it: do X, see Y
 

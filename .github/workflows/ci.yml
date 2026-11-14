@@ -20,8 +20,8 @@ jobs:
       - name: CLI tests
         run: npm test
 
-      - name: Contract unit tests
-        run: cargo test --lib --manifest-path contract/Cargo.toml
+      - name: Contract tests (unit + local sandbox end-to-end)
+        run: cargo test --manifest-path contract/Cargo.toml
 
       - name: Build the contract wasm
         run: cargo build --release --target wasm32-unknown-unknown --manifest-path contract/Cargo.toml
