@@ -114,6 +114,8 @@ test("CLI status and export against a mock RPC node", async () => {
     assert.match(ft.stdout, /TOTAL\s+50 USDC/);
     assert.match(ft.stdout, /ClinicPay holds 0 USDC/);
     assert.match(ft.stdout, /usdc.testnet ft_transfer_call/);
+    const mainnet = await run("node", ["cli/clinicpay.mjs", "status", "--contract", "c.testnet", "--id", "INV-1", "--rpc", rpc, "--network", "mainnet"]);
+    assert.match(mainnet.stdout, /network-config mainnet/);
     const ex = await run("node", ["cli/clinicpay.mjs", "export", "--contract", "c.testnet", "--clinic", "clinic.testnet", "--rpc", rpc]);
     const rows = ex.stdout.trim().split("\n");
     assert.equal(rows.length, 5);

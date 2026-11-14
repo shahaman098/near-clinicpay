@@ -9,8 +9,8 @@
 //!
 //! Ctrl-C to stop. Sandbox accounts and balances are local and disposable.
 
-use near_workspaces::types::NearToken;
 use near_workspaces::network::Sandbox;
+use near_workspaces::types::NearToken;
 use near_workspaces::{Account, Contract, Worker};
 use serde_json::{json, Value};
 use std::process::Command;
@@ -66,7 +66,11 @@ async fn balance(token: &Contract, who: &str) -> anyhow::Result<u128> {
     Ok(v.parse()?)
 }
 
-async fn deploy_token(worker: &Worker<Sandbox>, wasm: &[u8], symbol: &str) -> anyhow::Result<Contract> {
+async fn deploy_token(
+    worker: &Worker<Sandbox>,
+    wasm: &[u8],
+    symbol: &str,
+) -> anyhow::Result<Contract> {
     let token = worker.dev_deploy(wasm).await?;
     token
         .call("new")
@@ -84,7 +88,10 @@ async fn deploy_token(worker: &Worker<Sandbox>, wasm: &[u8], symbol: &str) -> an
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let wasm = build("Cargo.toml", "target/wasm32-unknown-unknown/release/clinicpay.wasm")?;
+    let wasm = build(
+        "Cargo.toml",
+        "target/wasm32-unknown-unknown/release/clinicpay.wasm",
+    )?;
     let token_wasm = build(
         "../test-token/Cargo.toml",
         "../test-token/target/wasm32-unknown-unknown/release/test_token.wasm",
@@ -140,9 +147,17 @@ async fn main() -> anyhow::Result<()> {
 
     // ---- stablecoin invoice (local 6-decimal NEP-141 test token) -------------
     let token = deploy_token(&worker, &token_wasm, "tUSDC").await?;
-    println!("3. deployed tUSDC (test token, 6 decimals, stands in for USDC): {}", token.id());
+    println!(
+        "3. deployed tUSDC (test token, 6 decimals, stands in for USDC): {}",
+        token.id()
+    );
 
-    for who in [contract.id().as_str(), clinic.id().as_str(), patient.id().as_str(), insurer.id().as_str()] {
+    for who in [
+        contract.id().as_str(),
+        clinic.id().as_str(),
+        patient.id().as_str(),
+        insurer.id().as_str(),
+    ] {
         register(&token, who).await?;
     }
     fund(&token, &patient, 10 * USD).await?;
@@ -182,7 +197,9 @@ async fn main() -> anyhow::Result<()> {
     for l in r.logs() {
         println!("   on-chain receipt: {l}");
     }
-    println!("5. patient paid 10 tUSDC via ft_transfer_call; insurer's 40 tUSDC share is still open\n");
+    println!(
+        "5. patient paid 10 tUSDC via ft_transfer_call; insurer's 40 tUSDC share is still open\n"
+    );
 
     // ---- failure path: the clinic cannot receive the token -------------------
     let token2 = deploy_token(&worker, &token_wasm, "tUSDC2").await?;
@@ -234,9 +251,19 @@ async fn main() -> anyhow::Result<()> {
     );
 
     println!("Read it back (new terminal, from the repo root):");
-    println!("  node cli/clinicpay.mjs status --contract {} --id INV-2026-0042 --rpc {rpc}", contract.id());
-    println!("  node cli/clinicpay.mjs status --contract {} --id INV-2026-0043 --rpc {rpc}", contract.id());
-    println!("  node cli/clinicpay.mjs export --contract {} --clinic {} --rpc {rpc}", contract.id(), clinic.id());
+    println!(
+        "  node cli/clinicpay.mjs status --contract {} --id INV-2026-0042 --rpc {rpc}",
+        contract.id()
+    );
+    println!(
+        "  node cli/clinicpay.mjs status --contract {} --id INV-2026-0043 --rpc {rpc}",
+        contract.id()
+    );
+    println!(
+        "  node cli/clinicpay.mjs export --contract {} --clinic {} --rpc {rpc}",
+        contract.id(),
+        clinic.id()
+    );
     println!("\nInvoice page (serve the repo, then open):");
     println!("  python3 -m http.server 8080   ->   http://localhost:8080/web/invoice.html?contract={}&id=INV-2026-0042&rpc={rpc}", contract.id());
     println!("\nCtrl-C to stop the sandbox.");

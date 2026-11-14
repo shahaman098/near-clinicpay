@@ -72,7 +72,10 @@ async fn balance(token: &Contract, who: &str) -> anyhow::Result<u128> {
 /// every forward to it fails.
 async fn setup(register_clinic: bool) -> anyhow::Result<Env> {
     let worker = near_workspaces::sandbox().await?;
-    let pay_wasm = build("Cargo.toml", "target/wasm32-unknown-unknown/release/clinicpay.wasm");
+    let pay_wasm = build(
+        "Cargo.toml",
+        "target/wasm32-unknown-unknown/release/clinicpay.wasm",
+    );
     let token_wasm = build(
         "../test-token/Cargo.toml",
         "../test-token/target/wasm32-unknown-unknown/release/test_token.wasm",
@@ -95,7 +98,11 @@ async fn setup(register_clinic: bool) -> anyhow::Result<Env> {
     let clinic = worker.dev_create_account().await?;
     let patient = worker.dev_create_account().await?;
     let insurer = worker.dev_create_account().await?;
-    for who in [pay.id().as_str(), patient.id().as_str(), insurer.id().as_str()] {
+    for who in [
+        pay.id().as_str(),
+        patient.id().as_str(),
+        insurer.id().as_str(),
+    ] {
         register(&token, who).await?;
     }
     if register_clinic {
@@ -121,7 +128,14 @@ async fn setup(register_clinic: bool) -> anyhow::Result<Env> {
         .await?
         .into_result()?;
 
-    Ok(Env { _worker: worker, pay, token, clinic, patient, insurer })
+    Ok(Env {
+        _worker: worker,
+        pay,
+        token,
+        clinic,
+        patient,
+        insurer,
+    })
 }
 
 async fn pay_ft(
@@ -144,11 +158,21 @@ async fn pay_ft(
 }
 
 async fn invoice(env: &Env) -> anyhow::Result<Value> {
-    Ok(env.pay.view("get_invoice").args_json(json!({"invoice_id": "FT-1"})).await?.json()?)
+    Ok(env
+        .pay
+        .view("get_invoice")
+        .args_json(json!({"invoice_id": "FT-1"}))
+        .await?
+        .json()?)
 }
 
 async fn status(env: &Env) -> anyhow::Result<String> {
-    let v: Value = env.pay.view("get_status").args_json(json!({"invoice_id": "FT-1"})).await?.json()?;
+    let v: Value = env
+        .pay
+        .view("get_status")
+        .args_json(json!({"invoice_id": "FT-1"}))
+        .await?
+        .json()?;
     Ok(v.as_str().unwrap().to_string())
 }
 
@@ -157,17 +181,40 @@ async fn stablecoin_split_payment_lands_with_the_clinic() -> anyhow::Result<()> 
     let env = setup(true).await?;
     assert_eq!(status(&env).await?, "Open");
 
-    let r = pay_ft(&env, &env.patient, 10 * USD, json!({"invoice_id": "FT-1", "share_index": 0})).await?;
+    let r = pay_ft(
+        &env,
+        &env.patient,
+        10 * USD,
+        json!({"invoice_id": "FT-1", "share_index": 0}),
+    )
+    .await?;
     assert!(r.is_success(), "{:?}", r.failures());
-    assert!(r.logs().iter().any(|l| l.contains("share_paid") && l.contains(env.token.id().as_str())));
+    assert!(r
+        .logs()
+        .iter()
+        .any(|l| l.contains("share_paid") && l.contains(env.token.id().as_str())));
     assert_eq!(status(&env).await?, "PartiallyPaid");
 
-    let r = pay_ft(&env, &env.insurer, 40 * USD, json!({"invoice_id": "FT-1", "share_index": 1})).await?;
+    let r = pay_ft(
+        &env,
+        &env.insurer,
+        40 * USD,
+        json!({"invoice_id": "FT-1", "share_index": 1}),
+    )
+    .await?;
     assert!(r.is_success(), "{:?}", r.failures());
     assert_eq!(status(&env).await?, "Paid");
 
-    assert_eq!(balance(&env.token, env.clinic.id().as_str()).await?, 50 * USD, "clinic gets every token");
-    assert_eq!(balance(&env.token, env.pay.id().as_str()).await?, 0, "contract holds nothing");
+    assert_eq!(
+        balance(&env.token, env.clinic.id().as_str()).await?,
+        50 * USD,
+        "clinic gets every token"
+    );
+    assert_eq!(
+        balance(&env.token, env.pay.id().as_str()).await?,
+        0,
+        "contract holds nothing"
+    );
     assert_eq!(balance(&env.token, env.patient.id().as_str()).await?, 0);
     assert_eq!(balance(&env.token, env.insurer.id().as_str()).await?, 0);
     Ok(())
@@ -176,7 +223,13 @@ async fn stablecoin_split_payment_lands_with_the_clinic() -> anyhow::Result<()> 
 #[tokio::test]
 async fn unregistered_clinic_reverts_payment_and_refunds_payer() -> anyhow::Result<()> {
     let env = setup(false).await?;
-    let r = pay_ft(&env, &env.patient, 10 * USD, json!({"invoice_id": "FT-1", "share_index": 0})).await?;
+    let r = pay_ft(
+        &env,
+        &env.patient,
+        10 * USD,
+        json!({"invoice_id": "FT-1", "share_index": 0}),
+    )
+    .await?;
     assert!(
         r.logs().iter().any(|l| l.contains("payment_reverted")),
         "the forward must fail and be reverted by ClinicPay, not rejected up front: {:?}",
@@ -185,8 +238,16 @@ async fn unregistered_clinic_reverts_payment_and_refunds_payer() -> anyhow::Resu
 
     let inv = invoice(&env).await?;
     assert_eq!(inv["shares"][0]["state"], "Open", "share must be reopened");
-    assert_eq!(balance(&env.token, env.patient.id().as_str()).await?, 10 * USD, "payer refunded in full");
-    assert_eq!(balance(&env.token, env.pay.id().as_str()).await?, 0, "contract holds nothing");
+    assert_eq!(
+        balance(&env.token, env.patient.id().as_str()).await?,
+        10 * USD,
+        "payer refunded in full"
+    );
+    assert_eq!(
+        balance(&env.token, env.pay.id().as_str()).await?,
+        0,
+        "contract holds nothing"
+    );
     Ok(())
 }
 
@@ -194,13 +255,31 @@ async fn unregistered_clinic_reverts_payment_and_refunds_payer() -> anyhow::Resu
 async fn wrong_amount_or_payer_is_returned_in_full() -> anyhow::Result<()> {
     let env = setup(true).await?;
     // patient sends 9 instead of 10
-    let _ = pay_ft(&env, &env.patient, 9 * USD, json!({"invoice_id": "FT-1", "share_index": 0})).await?;
+    let _ = pay_ft(
+        &env,
+        &env.patient,
+        9 * USD,
+        json!({"invoice_id": "FT-1", "share_index": 0}),
+    )
+    .await?;
     // insurer tries the patient's share
-    let _ = pay_ft(&env, &env.insurer, 10 * USD, json!({"invoice_id": "FT-1", "share_index": 0})).await?;
+    let _ = pay_ft(
+        &env,
+        &env.insurer,
+        10 * USD,
+        json!({"invoice_id": "FT-1", "share_index": 0}),
+    )
+    .await?;
 
     assert_eq!(status(&env).await?, "Open");
-    assert_eq!(balance(&env.token, env.patient.id().as_str()).await?, 10 * USD);
-    assert_eq!(balance(&env.token, env.insurer.id().as_str()).await?, 40 * USD);
+    assert_eq!(
+        balance(&env.token, env.patient.id().as_str()).await?,
+        10 * USD
+    );
+    assert_eq!(
+        balance(&env.token, env.insurer.id().as_str()).await?,
+        40 * USD
+    );
     assert_eq!(balance(&env.token, env.clinic.id().as_str()).await?, 0);
     Ok(())
 }
@@ -208,9 +287,18 @@ async fn wrong_amount_or_payer_is_returned_in_full() -> anyhow::Result<()> {
 #[tokio::test]
 async fn clinic_refund_returns_tokens_to_the_payer() -> anyhow::Result<()> {
     let env = setup(true).await?;
-    let r = pay_ft(&env, &env.patient, 10 * USD, json!({"invoice_id": "FT-1", "share_index": 0})).await?;
+    let r = pay_ft(
+        &env,
+        &env.patient,
+        10 * USD,
+        json!({"invoice_id": "FT-1", "share_index": 0}),
+    )
+    .await?;
     assert!(r.is_success(), "{:?}", r.failures());
-    assert_eq!(balance(&env.token, env.clinic.id().as_str()).await?, 10 * USD);
+    assert_eq!(
+        balance(&env.token, env.clinic.id().as_str()).await?,
+        10 * USD
+    );
 
     let r = pay_ft(
         &env,
@@ -223,7 +311,11 @@ async fn clinic_refund_returns_tokens_to_the_payer() -> anyhow::Result<()> {
     assert!(r.logs().iter().any(|l| l.contains("share_refunded")));
 
     assert_eq!(invoice(&env).await?["shares"][0]["state"], "Refunded");
-    assert_eq!(balance(&env.token, env.patient.id().as_str()).await?, 10 * USD, "patient made whole");
+    assert_eq!(
+        balance(&env.token, env.patient.id().as_str()).await?,
+        10 * USD,
+        "patient made whole"
+    );
     assert_eq!(balance(&env.token, env.clinic.id().as_str()).await?, 0);
     assert_eq!(balance(&env.token, env.pay.id().as_str()).await?, 0);
     Ok(())

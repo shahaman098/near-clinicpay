@@ -5,7 +5,7 @@
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
-Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 44 passing (24 unit, 8 sandbox e2e, 12 CLI/benchmark).
+Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 45 passing (25 unit, 8 sandbox e2e, 12 CLI/benchmark).
 
 Fastest verification:
 
@@ -76,9 +76,9 @@ funds needed: everything below runs on a local sandbox node.
 1. **Run all tests.**
    ```sh
    npm test                      # 12 tests: CLI against a mock RPC node + price benchmark
-   cd contract && cargo test     # 24 unit tests + 4 NEAR sandbox tests + 4 stablecoin sandbox tests
+   cd contract && cargo test     # 25 unit tests + 4 NEAR sandbox tests + 4 stablecoin sandbox tests
    ```
-   You should see `test result: ok. 24 passed`, then `ok. 4 passed` twice.
+   You should see `test result: ok. 25 passed`, then `ok. 4 passed` twice.
    - `tests/sandbox.rs` (NEAR): deploys the wasm, creates an invoice, pays it from two
      accounts, asserts the clinic's balance rose by exactly 5 NEAR and that the
      contract kept nothing, refunds a share, and kills the clinic account to prove a
@@ -109,7 +109,9 @@ funds needed: everything below runs on a local sandbox node.
    node cli/clinicpay.mjs export --contract <contract> --clinic <clinic> --rpc <rpc-url>
    ```
    `status` shows `PartiallyPaid`, the paid co-pay with payer and timestamp, the open
-   insurer share, and the exact `near` CLI command that pays it. The second invoice
+   insurer share, and the `near` CLI command that pays it on testnet (`--network
+   mainnet` when the contract lives there; the demo's sandbox port is not a near-cli
+   network, so that command is for a real deployment). The second invoice
    shows `50 tUSDC` with its token contract, read from the token's `ft_metadata`.
    `export` prints the CSV with a `currency` column.
 

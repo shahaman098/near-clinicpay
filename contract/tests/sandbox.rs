@@ -23,7 +23,13 @@ fn build_wasm() -> Vec<u8> {
     std::fs::read("target/wasm32-unknown-unknown/release/clinicpay.wasm").expect("wasm missing")
 }
 
-async fn setup() -> anyhow::Result<(near_workspaces::Worker<near_workspaces::network::Sandbox>, Contract, Account, Account, Account)> {
+async fn setup() -> anyhow::Result<(
+    near_workspaces::Worker<near_workspaces::network::Sandbox>,
+    Contract,
+    Account,
+    Account,
+    Account,
+)> {
     let worker = near_workspaces::sandbox().await?;
     let wasm = build_wasm();
     let contract = worker.dev_deploy(&wasm).await?;
@@ -34,7 +40,12 @@ async fn setup() -> anyhow::Result<(near_workspaces::Worker<near_workspaces::net
     Ok((worker, contract, clinic, patient, insurer))
 }
 
-async fn create_invoice(contract: &Contract, clinic: &Account, patient: &Account, insurer: &Account) -> anyhow::Result<()> {
+async fn create_invoice(
+    contract: &Contract,
+    clinic: &Account,
+    patient: &Account,
+    insurer: &Account,
+) -> anyhow::Result<()> {
     clinic
         .call(contract.id(), "create_invoice")
         .args_json(json!({
@@ -57,7 +68,11 @@ async fn create_invoice(contract: &Contract, clinic: &Account, patient: &Account
 }
 
 async fn status(contract: &Contract) -> anyhow::Result<String> {
-    let v: Value = contract.view("get_status").args_json(json!({"invoice_id": "INV-1"})).await?.json()?;
+    let v: Value = contract
+        .view("get_status")
+        .args_json(json!({"invoice_id": "INV-1"}))
+        .await?
+        .json()?;
     Ok(v.as_str().unwrap().to_string())
 }
 
@@ -79,7 +94,12 @@ async fn split_payment_settles_invoice_and_forwards_funds() -> anyhow::Result<()
         .transact()
         .await?
         .into_result()?;
-    assert!(res.logs().iter().any(|l| l.contains("EVENT_JSON") && l.contains("share_paid")), "receipt event missing");
+    assert!(
+        res.logs()
+            .iter()
+            .any(|l| l.contains("EVENT_JSON") && l.contains("share_paid")),
+        "receipt event missing"
+    );
     assert_eq!(status(&contract).await?, "PartiallyPaid");
 
     insurer
@@ -94,7 +114,11 @@ async fn split_payment_settles_invoice_and_forwards_funds() -> anyhow::Result<()
 
     settle().await;
     let after = clinic.view_account().await?.balance.as_yoctonear();
-    assert_eq!(after - before, 5 * NEAR, "clinic must receive the full 5 NEAR");
+    assert_eq!(
+        after - before,
+        5 * NEAR,
+        "clinic must receive the full 5 NEAR"
+    );
 
     // The contract keeps nothing: its balance only moves by gas rewards, never by payments.
     let contract_after = contract.view_account().await?.balance.as_yoctonear();
@@ -162,7 +186,11 @@ async fn refund_sends_money_back_to_the_payer() -> anyhow::Result<()> {
     let patient_after = patient.view_account().await?.balance.as_yoctonear();
     assert_eq!(patient_after - patient_before, NEAR);
 
-    let inv: Value = contract.view("get_invoice").args_json(json!({"invoice_id": "INV-1"})).await?.json()?;
+    let inv: Value = contract
+        .view("get_invoice")
+        .args_json(json!({"invoice_id": "INV-1"}))
+        .await?
+        .json()?;
     assert_eq!(inv["shares"][0]["state"], "Refunded");
     Ok(())
 }
@@ -173,7 +201,11 @@ async fn failed_forward_reverts_the_payment_and_refunds_the_payer() -> anyhow::R
     create_invoice(&contract, &clinic, &patient, &insurer).await?;
 
     // The clinic account disappears, so forwarding the payment must fail.
-    clinic.clone().delete_account(insurer.id()).await?.into_result()?;
+    clinic
+        .clone()
+        .delete_account(insurer.id())
+        .await?
+        .into_result()?;
 
     let before = patient.view_account().await?.balance.as_yoctonear();
     let _ = patient
@@ -185,9 +217,17 @@ async fn failed_forward_reverts_the_payment_and_refunds_the_payer() -> anyhow::R
         .await?;
     let after = patient.view_account().await?.balance.as_yoctonear();
 
-    let inv: Value = contract.view("get_invoice").args_json(json!({"invoice_id": "INV-1"})).await?.json()?;
+    let inv: Value = contract
+        .view("get_invoice")
+        .args_json(json!({"invoice_id": "INV-1"}))
+        .await?
+        .json()?;
     assert_eq!(inv["shares"][0]["state"], "Open", "share must be reopened");
     // Payer only lost gas, not the 1 NEAR.
-    assert!(before - after < NEAR / 10, "payer must get the deposit back (lost {})", before - after);
+    assert!(
+        before - after < NEAR / 10,
+        "payer must get the deposit back (lost {})",
+        before - after
+    );
     Ok(())
 }

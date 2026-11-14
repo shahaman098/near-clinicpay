@@ -139,11 +139,23 @@ impl ClinicPay {
         due_ms: Option<U64>,
         token: Option<AccountId>,
     ) -> Invoice {
-        require!(!id.is_empty() && id.len() <= MAX_ID, "id must be 1-64 characters");
+        require!(
+            !id.is_empty() && id.len() <= MAX_ID,
+            "id must be 1-64 characters"
+        );
         require!(memo.len() <= MAX_TEXT, "memo too long");
-        require!(!lines.is_empty() && lines.len() <= MAX_LINES, "1-50 lines required");
-        require!(!shares.is_empty() && shares.len() <= MAX_SHARES, "1-10 shares required");
-        require!(!self.invoices.contains_key(&id), "invoice id already exists");
+        require!(
+            !lines.is_empty() && lines.len() <= MAX_LINES,
+            "1-50 lines required"
+        );
+        require!(
+            !shares.is_empty() && shares.len() <= MAX_SHARES,
+            "1-10 shares required"
+        );
+        require!(
+            !self.invoices.contains_key(&id),
+            "invoice id already exists"
+        );
 
         let mut total: u128 = 0;
         for l in &lines {
@@ -155,9 +167,14 @@ impl ClinicPay {
         for s in &shares {
             require!(s.label.len() <= MAX_TEXT, "share label too long");
             require!(s.amount.0 > 0, "share amounts must be positive");
-            share_total = share_total.checked_add(s.amount.0).expect("amount overflow");
+            share_total = share_total
+                .checked_add(s.amount.0)
+                .expect("amount overflow");
         }
-        require!(share_total == total, "shares must add up to the lines total");
+        require!(
+            share_total == total,
+            "shares must add up to the lines total"
+        );
 
         let payee = env::predecessor_account_id();
         let invoice = Invoice {
@@ -239,13 +256,11 @@ impl ClinicPay {
             ),
         );
 
-        Promise::new(payee)
-            .transfer(deposit)
-            .then(
-                Self::ext(env::current_account_id())
-                    .with_static_gas(CALLBACK_GAS)
-                    .on_payout(invoice_id, share_index, payer, U128(amount)),
-            )
+        Promise::new(payee).transfer(deposit).then(
+            Self::ext(env::current_account_id())
+                .with_static_gas(CALLBACK_GAS)
+                .on_payout(invoice_id, share_index, payer, U128(amount)),
+        )
     }
 
     /// Clinic refunds a paid share. Attach exactly the share amount; it goes back
@@ -303,7 +318,10 @@ impl ClinicPay {
             "cannot cancel an invoice with payments; refund them first"
         );
         invoice.cancelled = true;
-        emit("invoice_cancelled", &format!(r#"{{"id":"{}"}}"#, esc(&invoice_id)));
+        emit(
+            "invoice_cancelled",
+            &format!(r#"{{"id":"{}"}}"#, esc(&invoice_id)),
+        );
     }
 
     /// NEP-141 receiver. A token contract calls this after a payer (or the clinic)
@@ -326,9 +344,13 @@ impl ClinicPay {
         msg: String,
     ) -> PromiseOrValue<U128> {
         let token = env::predecessor_account_id();
-        let m: FtMsg = near_sdk::serde_json::from_str(&msg)
-            .unwrap_or_else(|_| env::panic_str("msg must be {\"invoice_id\":..,\"share_index\":..}"));
-        let invoice = self.invoices.get_mut(&m.invoice_id).expect("no such invoice");
+        let m: FtMsg = near_sdk::serde_json::from_str(&msg).unwrap_or_else(|_| {
+            env::panic_str("msg must be {\"invoice_id\":..,\"share_index\":..}")
+        });
+        let invoice = self
+            .invoices
+            .get_mut(&m.invoice_id)
+            .expect("no such invoice");
         require!(
             invoice.token.as_ref() == Some(&token),
             "this invoice is not priced in this token"
@@ -344,7 +366,10 @@ impl ClinicPay {
                     .expect("no such share");
                 require!(share.state == ShareState::Open, "share is not open");
                 if let Some(only) = &share.payer {
-                    require!(only == &sender_id, "this share must be paid by its named payer");
+                    require!(
+                        only == &sender_id,
+                        "this share must be paid by its named payer"
+                    );
                 }
                 require!(amount.0 == share.amount.0, "send exactly the share amount");
                 share.state = ShareState::Paid;
@@ -366,7 +391,11 @@ impl ClinicPay {
                     ext_ft::ext(token)
                         .with_attached_deposit(NearToken::from_yoctonear(1))
                         .with_static_gas(FT_TRANSFER_GAS)
-                        .ft_transfer(payee, amount, Some(format!("ClinicPay {} #{}", m.invoice_id, share_index)))
+                        .ft_transfer(
+                            payee,
+                            amount,
+                            Some(format!("ClinicPay {} #{}", m.invoice_id, share_index)),
+                        )
                         .then(
                             Self::ext(env::current_account_id())
                                 .with_static_gas(FT_CALLBACK_GAS)
@@ -400,7 +429,14 @@ impl ClinicPay {
                     ext_ft::ext(token)
                         .with_attached_deposit(NearToken::from_yoctonear(1))
                         .with_static_gas(FT_TRANSFER_GAS)
-                        .ft_transfer(to, amount, Some(format!("ClinicPay refund {} #{}", m.invoice_id, share_index)))
+                        .ft_transfer(
+                            to,
+                            amount,
+                            Some(format!(
+                                "ClinicPay refund {} #{}",
+                                m.invoice_id, share_index
+                            )),
+                        )
                         .then(
                             Self::ext(env::current_account_id())
                                 .with_static_gas(FT_CALLBACK_GAS)
@@ -586,9 +622,21 @@ fn status_of(i: &Invoice, now: u64) -> Status {
     if i.cancelled {
         return Status::Cancelled;
     }
-    let open = i.shares.iter().filter(|s| s.state == ShareState::Open).count();
-    let paid = i.shares.iter().filter(|s| s.state == ShareState::Paid).count();
-    let refunded = i.shares.iter().filter(|s| s.state == ShareState::Refunded).count();
+    let open = i
+        .shares
+        .iter()
+        .filter(|s| s.state == ShareState::Open)
+        .count();
+    let paid = i
+        .shares
+        .iter()
+        .filter(|s| s.state == ShareState::Paid)
+        .count();
+    let refunded = i
+        .shares
+        .iter()
+        .filter(|s| s.state == ShareState::Refunded)
+        .count();
     if refunded == i.shares.len() {
         return Status::Refunded;
     }
@@ -610,9 +658,22 @@ fn now_ms() -> U64 {
     U64(env::block_timestamp_ms())
 }
 
-/// Escape the two characters that can break the hand-built JSON in event logs.
+/// Escape the characters that can break the hand-built JSON in event logs:
+/// quotes, backslashes, and control characters such as newlines in an id.
 fn esc(s: &str) -> String {
-    s.replace('\\', "\\\\").replace('"', "\\\"")
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 /// NEP-297 event log.
@@ -643,22 +704,43 @@ mod tests {
 
     fn lines() -> Vec<Line> {
         vec![
-            Line { description: "Consultation".into(), amount: U128(2 * NEAR) },
-            Line { description: "Blood panel".into(), amount: U128(3 * NEAR) },
+            Line {
+                description: "Consultation".into(),
+                amount: U128(2 * NEAR),
+            },
+            Line {
+                description: "Blood panel".into(),
+                amount: U128(3 * NEAR),
+            },
         ]
     }
 
     fn two_shares() -> Vec<ShareInput> {
         vec![
-            ShareInput { label: "Patient co-pay".into(), payer: Some(accounts(2)), amount: U128(NEAR) },
-            ShareInput { label: "Insurer".into(), payer: Some(accounts(3)), amount: U128(4 * NEAR) },
+            ShareInput {
+                label: "Patient co-pay".into(),
+                payer: Some(accounts(2)),
+                amount: U128(NEAR),
+            },
+            ShareInput {
+                label: "Insurer".into(),
+                payer: Some(accounts(3)),
+                amount: U128(4 * NEAR),
+            },
         ]
     }
 
     fn setup() -> ClinicPay {
         ctx(accounts(1), 0);
         let mut c = ClinicPay::new();
-        c.create_invoice("INV-1".into(), "Visit 12 Nov".into(), lines(), two_shares(), None, None);
+        c.create_invoice(
+            "INV-1".into(),
+            "Visit 12 Nov".into(),
+            lines(),
+            two_shares(),
+            None,
+            None,
+        );
         c
     }
 
@@ -672,11 +754,31 @@ mod tests {
     }
 
     #[test]
+    fn event_json_survives_quotes_and_newlines_in_ids() {
+        ctx(accounts(1), 0);
+        let mut c = ClinicPay::new();
+        let id = "INV\"-1\n2";
+        c.create_invoice(id.into(), "".into(), lines(), two_shares(), None, None);
+        let log = near_sdk::test_utils::get_logs()
+            .into_iter()
+            .find(|l| l.contains("invoice_created"))
+            .expect("invoice_created event logged");
+        let body = log.strip_prefix("EVENT_JSON:").expect("event prefix");
+        let v: near_sdk::serde_json::Value =
+            near_sdk::serde_json::from_str(body).expect("event data is valid JSON");
+        assert_eq!(v["data"][0]["id"], id);
+    }
+
+    #[test]
     #[should_panic(expected = "shares must add up to the lines total")]
     fn rejects_shares_that_do_not_match_lines() {
         ctx(accounts(1), 0);
         let mut c = ClinicPay::new();
-        let bad = vec![ShareInput { label: "x".into(), payer: None, amount: U128(NEAR) }];
+        let bad = vec![ShareInput {
+            label: "x".into(),
+            payer: None,
+            amount: U128(NEAR),
+        }];
         c.create_invoice("INV-2".into(), "".into(), lines(), bad, None, None);
     }
 
@@ -770,7 +872,14 @@ mod tests {
     fn overdue_when_due_date_passed() {
         ctx(accounts(1), 0);
         let mut c = ClinicPay::new();
-        c.create_invoice("INV-3".into(), "".into(), lines(), two_shares(), Some(U64(1)), None);
+        c.create_invoice(
+            "INV-3".into(),
+            "".into(),
+            lines(),
+            two_shares(),
+            Some(U64(1)),
+            None,
+        );
         assert_eq!(c.get_status("INV-3".into()), Some(Status::Overdue));
     }
 
@@ -791,10 +900,21 @@ mod tests {
         c.create_invoice(
             "FT-1".into(),
             "Visit 12 Nov".into(),
-            vec![Line { description: "Treatment".into(), amount: U128(50 * USD) }],
+            vec![Line {
+                description: "Treatment".into(),
+                amount: U128(50 * USD),
+            }],
             vec![
-                ShareInput { label: "Patient co-pay".into(), payer: Some(accounts(2)), amount: U128(10 * USD) },
-                ShareInput { label: "Insurer".into(), payer: Some(accounts(3)), amount: U128(40 * USD) },
+                ShareInput {
+                    label: "Patient co-pay".into(),
+                    payer: Some(accounts(2)),
+                    amount: U128(10 * USD),
+                },
+                ShareInput {
+                    label: "Insurer".into(),
+                    payer: Some(accounts(3)),
+                    amount: U128(40 * USD),
+                },
             ],
             None,
             Some(usdc()),
@@ -832,7 +952,11 @@ mod tests {
     fn ft_to_a_near_invoice_is_rejected() {
         let mut c = setup();
         ctx(usdc(), 0);
-        let _ = c.ft_on_transfer(accounts(2), U128(NEAR), r#"{"invoice_id":"INV-1","share_index":0}"#.into());
+        let _ = c.ft_on_transfer(
+            accounts(2),
+            U128(NEAR),
+            r#"{"invoice_id":"INV-1","share_index":0}"#.into(),
+        );
     }
 
     #[test]
@@ -873,7 +997,13 @@ mod tests {
         ctx(usdc(), 0);
         let _ = c.ft_on_transfer(accounts(2), U128(10 * USD), pay_msg(0));
         ctx(me(), 0);
-        let back = c.on_ft_payout("FT-1".into(), 0, accounts(2), U128(10 * USD), Err(PromiseError::Failed));
+        let back = c.on_ft_payout(
+            "FT-1".into(),
+            0,
+            accounts(2),
+            U128(10 * USD),
+            Err(PromiseError::Failed),
+        );
         assert_eq!(back, U128(10 * USD));
         let inv = c.get_invoice("FT-1".into()).unwrap();
         assert_eq!(inv.shares[0].state, ShareState::Open);
@@ -900,7 +1030,10 @@ mod tests {
         ctx(me(), 0);
         let back = c.on_ft_refund("FT-1".into(), 0, U128(10 * USD), Err(PromiseError::Failed));
         assert_eq!(back, U128(10 * USD));
-        assert_eq!(c.get_invoice("FT-1".into()).unwrap().shares[0].state, ShareState::Paid);
+        assert_eq!(
+            c.get_invoice("FT-1".into()).unwrap().shares[0].state,
+            ShareState::Paid
+        );
     }
 
     #[test]

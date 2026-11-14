@@ -14,8 +14,9 @@ const HELP = `clinicpay <command> [options]
           [--token TOKEN_CONTRACT --decimals N]
           Print the JSON arguments for the contract's create_invoice. Amounts are NEAR, or the
           token's units with --token (a NEP-141 contract such as USDC; --decimals 6 for USDC).
-  status  --contract ACCOUNT --id ID [--rpc URL]
-          Show an invoice, its status, and the exact command each open share is paid with.
+  status  --contract ACCOUNT --id ID [--rpc URL] [--network testnet|mainnet]
+          Show an invoice, its status, and the near CLI command that pays each open
+          share on that network (default: testnet).
   export  --contract ACCOUNT --clinic ACCOUNT [--out FILE.csv] [--rpc URL]
           One CSV row per share for every invoice of the clinic.
 
@@ -31,6 +32,7 @@ async function main(argv) {
       line: { type: "string", multiple: true }, share: { type: "string", multiple: true },
       contract: { type: "string" }, clinic: { type: "string" }, out: { type: "string" },
       rpc: { type: "string", default: DEFAULT_RPC },
+      network: { type: "string", default: "testnet" },
       token: { type: "string" }, decimals: { type: "string" },
     },
   });
@@ -60,7 +62,7 @@ async function main(argv) {
     }
     inv.shares.forEach((s, i) => {
       if (s.state === "Open") {
-        console.log(`\nPay share #${i}:\n  ${payCommand(v.contract, inv.id, i, s.amount, "testnet", inv.token ?? null)}`);
+        console.log(`\nPay share #${i}:\n  ${payCommand(v.contract, inv.id, i, s.amount, v.network, inv.token ?? null)}`);
       }
     });
     return;
