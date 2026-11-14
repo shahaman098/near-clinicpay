@@ -136,6 +136,8 @@ registered, payments are reverted and refunded (that is the rollback test above)
 - NEAR and token paths cannot be mixed: `pay_share` / `refund_share` reject token
   invoices, and `ft_on_transfer` rejects NEAR invoices.
 - Exact-amount deposits only; a named share can only be paid by its named account.
+- Invoices are immutable: there is no update path, so line items, shares and payers cannot be
+  re-pointed after creation. A refund always targets the account that paid.
 - Only the clinic that created an invoice can refund or cancel it.
 - No keys in this repo. The CLI is read-only.
 
