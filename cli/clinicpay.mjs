@@ -7,6 +7,7 @@ import {
   DEFAULT_RPC, buildCreateArgs, claimResponse, describe, fromUnits, invoicesToCsv, listAll, payCommand, tokenMetas,
   unitsOf, view,
 } from "./lib.mjs";
+import { assetLabel, checkQuote, findAsset, preflight, quote, status as intentStatus, tokens } from "./intents.mjs";
 
 const HELP = `clinicpay <command> [options]
 
@@ -21,6 +22,12 @@ const HELP = `clinicpay <command> [options]
           One CSV row per share for every invoice of the clinic (835-style, not X12 835).
   export-fhir --contract ACCOUNT --id ID [--out FILE.json] [--rpc URL]
           FHIR R4 ClaimResponse for one invoice, with submitted/benefit adjudication.
+  pay-from-any-chain --contract C --id ID --share N --from CHAIN:SYMBOL --refund-to ADDR
+          [--live] [--rpc URL]
+          Price a share for payment from another chain via NEAR Intents (1Click).
+          Dry by default; --live returns the deposit address. Mainnet only.
+  intent-status --deposit ADDRESS
+          Status of a 1Click deposit address.
 
 Default RPC: ${DEFAULT_RPC} (testnet).`;
 
@@ -36,6 +43,8 @@ async function main(argv) {
       rpc: { type: "string", default: DEFAULT_RPC },
       network: { type: "string", default: "testnet" },
       token: { type: "string" }, decimals: { type: "string" },
+      from: { type: "string" }, "refund-to": { type: "string" }, live: { type: "boolean" },
+      deposit: { type: "string" },
     },
   });
 
@@ -67,6 +76,44 @@ async function main(argv) {
         console.log(`\nPay share #${i}:\n  ${payCommand(v.contract, inv.id, i, s.amount, v.network, inv.token ?? null)}`);
       }
     });
+    return;
+  }
+  if (cmd === "pay-from-any-chain") {
+    if (!v.id || v.share === undefined || !v.from || !v["refund-to"]) {
+      throw new Error("--id, --share, --from CHAIN:SYMBOL and --refund-to are required");
+    }
+    const assets = await tokens();
+    const origin = findAsset(assets, v.from);
+    if (!origin) throw new Error(`unknown origin asset "${v.from}" (try base:USDC, sol:SOL, btc:BTC)`);
+    const index = Number(v.share);
+    const { invoice, amount, assetId } = await preflight({
+      rpc: v.rpc, contract: v.contract, invoiceId: v.id, shareIndex: index, assets,
+    });
+    const q = await quote({
+      originAsset: origin.assetId, destinationAsset: assetId, amount,
+      recipient: v.contract, msg: { invoice_id: invoice.id, share_index: index },
+      refundTo: v["refund-to"], dry: !v.live,
+    });
+    const out = checkQuote(q, amount);
+    const inHuman = fromUnits(out.amountIn, origin.decimals);
+    console.log(`Invoice ${invoice.id}  share #${index}`);
+    console.log(`Pay from: ${assetLabel(origin)} (${origin.assetId})`);
+    console.log(`Send:     up to ${inHuman} ${origin.symbol} (quoted ${out.amountInFormatted}; min ${fromUnits(out.minAmountIn, origin.decimals)})`);
+    console.log(`Receive:  exactly ${fromUnits(amount, invoice.token ? 6 : 24)} on NEAR to ${v.contract}`);
+    console.log(`Estimate: ${out.timeEstimate}s, withdraw fee ${out.withdrawFee}, min out ${out.minAmountOut}`);
+    if (v.live) {
+      console.log(`\nDeposit ${out.amountIn} of ${assetLabel(origin)} to:`);
+      console.log(`  ${out.depositAddress}`);
+      console.log(`  deadline ${out.deadline}`);
+      console.log(`Track: node cli/clinicpay.mjs intent-status --deposit ${out.depositAddress}`);
+    } else {
+      console.log("\nDry quote. Nothing to send; re-run with --live for a deposit address.");
+    }
+    return;
+  }
+  if (cmd === "intent-status") {
+    if (!v.deposit) throw new Error("--deposit is required");
+    console.log(JSON.stringify(await intentStatus(v.deposit), null, 2));
     return;
   }
   if (cmd === "export-fhir") {

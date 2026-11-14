@@ -5,7 +5,7 @@
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
-Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 84 passing (41 unit, 15 sandbox e2e on a real local NEAR node, 28 CLI/relayer/benchmark).
+Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 96 passing (41 unit, 20 sandbox e2e on a real local NEAR node, 35 CLI/relayer/benchmark).
 
 Fastest verification:
 
@@ -100,7 +100,7 @@ funds needed: everything below runs on a local sandbox node.
 
 1. **Run all tests.**
    ```sh
-   npm test                      # 28 tests: CLI (mock RPC), relayer policy + encoding, benchmark
+   npm test                      # 35 tests: CLI (mock RPC), Intents client, relayer policy, benchmark
    cd contract && cargo test     # 39 unit + 4 NEAR + 5 stablecoin + 5 gasless + 1 deploy-tool sandbox tests
    ```
    You should see `test result: ok. 39 passed`, then (in file order) `ok. 4 passed`,
@@ -307,6 +307,24 @@ invoice at 1e19 yocto/byte, and a zero-custody assertion. Writes
 [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md). The NEAR/USD rate is an argument; without
 it the report stays in NEAR.
 
+### Pay from another chain (NEAR Intents)
+
+A patient can pay an **open** share from what they already hold, and the clinic
+receives the exact share in USDC on NEAR. Dry by default; `--live` returns a deposit
+address. Mainnet only, because 1Click has no testnet.
+
+```sh
+node cli/clinicpay.mjs pay-from-any-chain --contract <contract> --id INV-2026-0045 \
+  --share 0 --from base:USDC --refund-to 0xYourAddress
+node cli/clinicpay.mjs intent-status --deposit <deposit-address>
+```
+
+The CLI preflights the invoice (token invoice, open share, no named payer, both
+parties registered on the token, the token is a 1Click asset) and refuses a quote
+whose `minAmountOut` is not exactly the share or that charges a withdraw fee. The
+sandbox proves the delivery at the 50 Tgas floor, including the rollback when the
+clinic cannot receive the token: [`docs/INTENTS.md`](docs/INTENTS.md).
+
 ## Security notes
 
 - The contract never custodies funds: payment is forwarded in the same call, and a
@@ -337,8 +355,9 @@ it the report stays in NEAR.
   paid directly (see above). The relayer enforces a sliding-window budget per payer and
   globally (`RELAYER_MAX_TX_PER_PAYER`, `RELAYER_MAX_TX_GLOBAL`,
   `RELAYER_MAX_GAS_GLOBAL`, `RELAYER_BUDGET_WINDOW_MS`); the defaults are demo-sized.
-  Payer accounts must exist on NEAR and hold the token. No NEAR Intents yet, so payers
-  need the token on NEAR (no cross-chain payment).
+  Cross-chain payment is priced through NEAR Intents (1Click) and proven on a sandbox
+  against the verifier's 50 Tgas withdrawal floor; 1Click is mainnet-only, so it has
+  not run end to end with real funds. See `docs/INTENTS.md`.
 - The NHS benchmark is an England-wide 2025/26 national average, not a negotiated
   tariff, and it is advisory: it informs the clinic before invoicing, and the contract
   does not read it.
