@@ -10,7 +10,7 @@ Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 45 passing (2
 Fastest verification:
 
 ```sh
-npm test && (cd contract && cargo test)   # 44 tests, no keys, no network funds
+npm test && (cd contract && cargo test)   # 45 tests, no keys, no network funds
 cd contract && cargo run --example demo   # settles two invoices, then shows a refund
 ```
 
