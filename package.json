@@ -9,7 +9,7 @@
     "clinicpay": "cli/clinicpay.mjs"
   },
   "scripts": {
-    "test": "node --test cli/ bench/",
+    "test": "node --test cli/clinicpay.test.mjs bench/bench.test.mjs",
     "test:contract": "cd contract && cargo test",
     "build:wasm": "cd contract && cargo build --target wasm32-unknown-unknown --release",
     "test:all": "npm test && npm run test:contract"
