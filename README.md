@@ -5,7 +5,7 @@
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
-Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 82 passing (39 unit, 15 sandbox e2e on a real local NEAR node, 28 CLI/relayer/benchmark).
+Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 83 passing (40 unit, 15 sandbox e2e on a real local NEAR node, 28 CLI/relayer/benchmark).
 
 Fastest verification:
 

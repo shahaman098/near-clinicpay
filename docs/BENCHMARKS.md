@@ -12,11 +12,11 @@ Local NEAR sandbox, one 5-unit invoice per operation. Gas is `total_gas_burnt` f
 | --- | ---: | ---: | ---: |
 | create_invoice | 2.226 | 0.000222648 | $0.00069 |
 | pay_share (NEAR) | 4.977 | 0.000497668 | $0.00155 |
-| ft_transfer_call (token) | 11.301 | 0.001130149 | $0.00353 |
+| ft_transfer_call (token) | 11.274 | 0.001127413 | $0.00352 |
 | adjudicate_share | 2.218 | 0.000221795 | $0.00069 |
 | refund_share | 4.965 | 0.000496522 | $0.00155 |
 | cancel_invoice | 2.067 | 0.000206733 | $0.00065 |
-| relayed ft_transfer_call | 12.465 | 0.001112630 | $0.00347 |
+| relayed ft_transfer_call | 12.438 | 0.001109894 | $0.00346 |
 | relayed adjudicate_share | 3.386 | 0.000293919 | $0.00092 |
 
 **Storage:** 413 bytes per invoice → 0.00413 NEAR at 1e19 yocto/byte ($0.01289).
@@ -30,7 +30,7 @@ Local NEAR sandbox, one 5-unit invoice per operation. Gas is `total_gas_burnt` f
 | Card-not-present fee on a $50 co-pay | ~$1.75 (2.9% + $0.30) | Stripe list pricing, illustrative |
 | CAQH claim payment, manual | $3.48 per transaction | CAQH Index 2024, claim payment |
 | CAQH claim payment, electronic | $1.85 per transaction | CAQH Index 2024, claim payment |
-| ClinicPay stablecoin settlement | 0.001130149 NEAR (~$0.00353) | this benchmark |
+| ClinicPay stablecoin settlement | 0.001127413 NEAR (~$0.00352) | this benchmark |
 
 Sources: CAQH Index 2024 <https://caqh.org/hubfs/Index/CAQH_IndexReport_2024_FINAL.pdf>; Stripe pricing <https://stripe.com/pricing>; NEAR protocol config for the 1e8 yocto/gas minimum. Card and CAQH figures are industry cost benchmarks, not fees ClinicPay charges. The comparison is here to show order of magnitude, not to claim a like-for-like saving.
 
