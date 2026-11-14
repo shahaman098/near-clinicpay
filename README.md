@@ -7,6 +7,8 @@ Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 20
 
 Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 99 passing (41 unit, 23 sandbox e2e on a real local NEAR node, 35 CLI/relayer/benchmark).
 
+**Live on testnet:** `clinicpay-demo-mwgv5r7s.testnet`, invoice `INV-TESTNET-1` (1 of 5 NEAR paid by a real testnet account). Read it: `node cli/clinicpay.mjs status --contract clinicpay-demo-mwgv5r7s.testnet --id INV-TESTNET-1 --rpc https://rpc.testnet.near.org`.
+
 Fastest verification:
 
 ```sh
@@ -354,7 +356,7 @@ clinic cannot receive the token: [`docs/INTENTS.md`](docs/INTENTS.md).
 ## Limitations (honest)
 
 - Stablecoin settlement is tested with a local test token (6 decimals, like USDC), not
-  with the real USDC contract, because nothing here is deployed to testnet or mainnet.
+  with the real USDC contract, because the testnet deployment has no USDC registration.
   Any standard NEP-141 token works the same way.
 - Gasless payment covers stablecoin shares and adjudication. NEAR-priced shares are
   paid directly (see above). The relayer enforces a sliding-window budget per payer and
@@ -393,13 +395,13 @@ clinic cannot receive the token: [`docs/INTENTS.md`](docs/INTENTS.md).
   totals (160 / 70 / 90 / 10 tUSDC) by hand against the demo; the currency tabs,
   status chips, search, Enter on an invoice link, and that the CSV button produces the
   same text as `cli export`. The pages have no automated browser tests, were not tried
-  in Safari or Firefox, and have not been used against testnet or mainnet.
+  in Safari or Firefox, and have not been used against mainnet (the testnet invoice is
+  read with the CLI).
 
   ![ClinicPay invoice page, read live from the local sandbox](web/invoice-page.png)
-- Not deployed to testnet or mainnet yet: deploying needs the team's own funded NEAR
-  account. `ops/deploy.mjs` makes that one command, and it is tested end to end on a
-  local node running nearcore 2.9 (testnet runs 2.14). All demonstrated flows run on
-  the local sandbox.
+- Deployed to **testnet only** (`clinicpay-demo-mwgv5r7s.testnet`); mainnet is not
+  deployed. The stablecoin and gasless and Intents flows are demonstrated on the local
+  sandbox; the live testnet invoice is NEAR-priced.
 - Not audited. Do not use with real patient data.
 
 ## Libraries and baseline disclosure
