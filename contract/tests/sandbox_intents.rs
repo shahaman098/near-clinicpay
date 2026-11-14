@@ -16,6 +16,8 @@ use std::process::Command;
 
 const USD: u128 = 1_000_000;
 const FLOOR_TGAS: u64 = 50;
+/// intents.near refuses a `ft_transfer_call` withdrawal below this (FT_TRANSFER_CALL_GAS_MIN).
+const HARD_MIN_TGAS: u64 = 30;
 
 fn build(manifest: &str, wasm: &str) -> Vec<u8> {
     let status = Command::new("cargo")
@@ -161,12 +163,15 @@ async fn duplicate_delivery_is_returned() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn failed_delivery_at_the_floor_rolls_back() -> anyhow::Result<()> {
-    let env = setup(false).await?; // clinic not registered on the token
-    let before = balance(&env.token, env.intents.id().as_str()).await?;
-    let _ = deliver(&env, 0, FLOOR_TGAS).await?;
-    assert_eq!(state(&env, "X-1", 0).await?, "Open", "share must reopen");
-    assert_eq!(balance(&env.token, env.intents.id().as_str()).await?, before, "payer refunded");
-    assert_eq!(balance(&env.token, env.pay.id().as_str()).await?, 0);
+    // Both the verifier's default (50) and its hard minimum (30).
+    for gas in [FLOOR_TGAS, HARD_MIN_TGAS] {
+        let env = setup(false).await?; // clinic not registered on the token
+        let before = balance(&env.token, env.intents.id().as_str()).await?;
+        let _ = deliver(&env, 0, gas).await?;
+        assert_eq!(state(&env, "X-1", 0).await?, "Open", "share must reopen at {gas} Tgas");
+        assert_eq!(balance(&env.token, env.intents.id().as_str()).await?, before, "payer refunded at {gas} Tgas");
+        assert_eq!(balance(&env.token, env.pay.id().as_str()).await?, 0);
+    }
     Ok(())
 }
 
@@ -190,21 +195,26 @@ async fn gas_sweep_reports_the_lowest_settling_delivery() -> anyhow::Result<()> 
             .transact()
             .await?
             .into_result()?;
-        let ok = env
+        // `ft_transfer_call` itself succeeds even when ft_on_transfer runs out of gas
+        // and the tokens bounce back, so "settled" means the share is Paid, not that
+        // the transaction succeeded.
+        let _ = env
             .intents
             .call(env.token.id(), "ft_transfer_call")
             .args_json(json!({"receiver_id": env.pay.id(), "amount": (10 * USD).to_string(), "msg": msg(&id, 0)}))
             .deposit(NearToken::from_yoctonear(1))
             .gas(Gas::from_tgas(*g))
             .transact()
-            .await?
-            .is_success();
+            .await?;
+        let ok = state(&env, &id, 0).await? == "Paid";
+        assert_eq!(balance(&env.token, env.pay.id().as_str()).await?, 0, "ClinicPay holds nothing at {g} Tgas");
         eprintln!("gas sweep: {} Tgas -> {}", g, if ok { "settled" } else { "failed" });
         if ok {
             settled.push(*g);
         }
     }
-    assert!(settled.iter().any(|g| *g == 50), "50 Tgas must settle");
+    assert!(settled.contains(&FLOOR_TGAS), "50 Tgas must settle");
+    assert!(settled.contains(&HARD_MIN_TGAS), "30 Tgas (the verifier's hard minimum) must settle");
     eprintln!("lowest settling delivery: {} Tgas", settled.iter().min().unwrap());
     Ok(())
 }

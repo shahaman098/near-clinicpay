@@ -11,7 +11,7 @@ payer on Base / Solana / Bitcoin
         ▼
 1Click solver network ──► NEAR Intents verifier ──► intents.near
                                                      │ ft_transfer_call
-                                                     │ 50 Tgas floor
+                                                     │ 30 Tgas floor
                                                      ▼
                                     ClinicPay.ft_on_transfer
                                       │ forwards the exact share
@@ -44,22 +44,27 @@ comparison ignores the origin chain's own network fee.
 
 ## Gas at the verifier's floor
 
-`near/intents` withdraws via `ft_transfer_call` and can attach as little as 50 Tgas.
-The sandbox stand-in test (`contract/tests/sandbox_intents.rs`) calls the token exactly
-that way:
+`near/intents` withdraws via `ft_transfer_call` with 50 Tgas by default and refuses
+anything below 30 Tgas (`FT_TRANSFER_CALL_GAS_DEFAULT` / `_MIN` in `tokens.rs`). The
+sandbox stand-in test (`contract/tests/sandbox_intents.rs`) calls the token exactly that
+way:
 
 | Case | Result |
 | --- | --- |
 | Open share, exactly 50 Tgas | settles; clinic receives the share; contract holds 0 |
 | Named-payer share | tokens returned to the sender; share stays Open |
 | Duplicate delivery to a paid share | tokens returned; no double credit |
-| Clinic not registered on the token, 50 Tgas | share reopens; tokens returned; contract holds 0 |
-| Gas sweep | settles at 50, 45, 40, 35, 30, 25 and 20 Tgas |
+| Clinic not registered on the token, at 50 and at 30 Tgas | share reopens; tokens returned; contract holds 0 |
+| Gas sweep (settled = share Paid) | settles at 50, 45, 40, 35 and 30 Tgas; at 25 and 20 the tokens bounce back and the contract holds 0 |
 
-So the current 15 Tgas forward + 15 Tgas callback constants already fit under the
-50 Tgas floor on a `near-contract-standards` 5.30 token. **No contract gas change was
-made.** The plan expected the floor to fail and a fix to be needed; it did not
-reproduce, so shipping a gas change would have been risk without evidence.
+**The gas fix.** With the original 15 Tgas forward + 15 Tgas callback, the same sweep
+settled only at 50 and 45 Tgas: the verifier's default worked with about 5 Tgas to
+spare, and its 30 Tgas minimum failed (safely: the tokens bounced back). The first
+version of the sweep missed this because it counted a successful `ft_transfer_call` as
+settled, and `ft_transfer_call` succeeds even when `ft_on_transfer` fails. Lowering both
+static amounts to 8 Tgas (near-sdk hands each promise an equal share of the unused gas on
+top) makes 30 Tgas settle, and the rollback test above passes at 30 Tgas too. The test
+token is `near-contract-standards` 5.30; mainnet USDC's contract was not checked.
 
 ## Honest limits
 

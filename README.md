@@ -322,7 +322,7 @@ node cli/clinicpay.mjs intent-status --deposit <deposit-address>
 The CLI preflights the invoice (token invoice, open share, no named payer, both
 parties registered on the token, the token is a 1Click asset) and refuses a quote
 whose `minAmountOut` is not exactly the share or that charges a withdraw fee. The
-sandbox proves the delivery at the 50 Tgas floor, including the rollback when the
+sandbox proves the delivery at the verifier's 50 Tgas default and 30 Tgas minimum, including the rollback when the
 clinic cannot receive the token: [`docs/INTENTS.md`](docs/INTENTS.md).
 
 ## Security notes
@@ -356,7 +356,7 @@ clinic cannot receive the token: [`docs/INTENTS.md`](docs/INTENTS.md).
   globally (`RELAYER_MAX_TX_PER_PAYER`, `RELAYER_MAX_TX_GLOBAL`,
   `RELAYER_MAX_GAS_GLOBAL`, `RELAYER_BUDGET_WINDOW_MS`); the defaults are demo-sized.
   Cross-chain payment is priced through NEAR Intents (1Click) and proven on a sandbox
-  against the verifier's 50 Tgas withdrawal floor; 1Click is mainnet-only, so it has
+  against the verifier's 50 Tgas default and 30 Tgas minimum; 1Click is mainnet-only, so it has
   not run end to end with real funds. See `docs/INTENTS.md`.
 - The NHS benchmark is an England-wide 2025/26 national average, not a negotiated
   tariff, and it is advisory: it informs the clinic before invoicing, and the contract

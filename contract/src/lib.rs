@@ -26,8 +26,10 @@ const MAX_SHARES: usize = 10;
 const MAX_TEXT: usize = 200;
 const MAX_ID: usize = 64;
 const CALLBACK_GAS: Gas = Gas::from_tgas(10);
-const FT_TRANSFER_GAS: Gas = Gas::from_tgas(15);
-const FT_CALLBACK_GAS: Gas = Gas::from_tgas(15);
+// Static minimums only: near-sdk gives each promise an equal share of unused gas on top,
+// so a NEAR Intents delivery settles even at the verifier's 30 Tgas hard minimum.
+const FT_TRANSFER_GAS: Gas = Gas::from_tgas(8);
+const FT_CALLBACK_GAS: Gas = Gas::from_tgas(8);
 
 /// The NEP-141 call this contract makes to forward tokens.
 #[ext_contract(ext_ft)]
