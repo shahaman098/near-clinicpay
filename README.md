@@ -7,6 +7,8 @@ Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 20
 
 Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 99 passing (41 unit, 23 sandbox e2e on a real local NEAR node, 35 CLI/relayer/benchmark).
 
+**Live dashboard:** [clinic overview](https://shahaman098.github.io/near-clinicpay/web/clinic.html?contract=clinicpay-demo-mwgv5r7s.testnet&clinic=clinicpay-demo-mwgv5r7s.testnet) · [invoice INV-TESTNET-1](https://shahaman098.github.io/near-clinicpay/web/invoice.html?contract=clinicpay-demo-mwgv5r7s.testnet&id=INV-TESTNET-1) (GitHub Pages, reading testnet directly; nothing to install).
+
 **Live on testnet:** `clinicpay-demo-mwgv5r7s.testnet`, invoice `INV-TESTNET-1` (1 of 5 NEAR paid by a real testnet account). Read it: `node cli/clinicpay.mjs status --contract clinicpay-demo-mwgv5r7s.testnet --id INV-TESTNET-1 --rpc https://rpc.testnet.near.org`.
 
 Fastest verification:
