@@ -2,19 +2,26 @@
 
 [![ci](https://github.com/shahaman098/near-clinicpay/actions/workflows/ci.yml/badge.svg)](https://github.com/shahaman098/near-clinicpay/actions/workflows/ci.yml)
 
-**Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
-Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
+**One clinic bill, several payers (patient, insurer, employer), each share settled on NEAR in stablecoin, with the insurer's decision recorded on chain, no gas for the patient, and payment from any chain through NEAR Intents.**
 
-Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 99 passing (41 unit, 23 sandbox e2e on a real local NEAR node, 35 CLI/relayer/benchmark).
+[Live dashboard (testnet)](https://shahaman098.github.io/near-clinicpay/web/clinic.html?contract=clinicpay-demo-mwgv5r7s.testnet&clinic=clinicpay-demo-mwgv5r7s.testnet) ·
+[Live invoice](https://shahaman098.github.io/near-clinicpay/web/invoice.html?contract=clinicpay-demo-mwgv5r7s.testnet&id=INV-TESTNET-1) ·
+[Demo video](docs/demo.mp4) ·
+[Benchmarks](docs/BENCHMARKS.md) ·
+[NEAR Intents](docs/INTENTS.md)
 
-**Live dashboard:** [clinic overview](https://shahaman098.github.io/near-clinicpay/web/clinic.html?contract=clinicpay-demo-mwgv5r7s.testnet&clinic=clinicpay-demo-mwgv5r7s.testnet) · [invoice INV-TESTNET-1](https://shahaman098.github.io/near-clinicpay/web/invoice.html?contract=clinicpay-demo-mwgv5r7s.testnet&id=INV-TESTNET-1) (GitHub Pages, reading testnet directly; nothing to install).
+> Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14 · Track: **Real-World Money** (`realworld`) ·
+> 99 tests passing (41 unit, 23 on a real local NEAR node, 35 CLI/relayer/benchmark)
 
-**Live on testnet:** `clinicpay-demo-mwgv5r7s.testnet`, invoice `INV-TESTNET-1` (1 of 5 NEAR paid by a real testnet account). Read it: `node cli/clinicpay.mjs status --contract clinicpay-demo-mwgv5r7s.testnet --id INV-TESTNET-1 --rpc https://rpc.testnet.near.org`.
+![Clinic dashboard: billed, collected, outstanding and insurer adjustments, read straight from the contract (local demo node)](docs/hero-dashboard.png)
 
-Fastest verification:
+**Live on testnet:** contract `clinicpay-demo-mwgv5r7s.testnet`, invoice `INV-TESTNET-1` (5 NEAR; the patient's 1 NEAR co-pay paid by a real testnet account). The links above read it straight from testnet; nothing to install. From a terminal:
+`node cli/clinicpay.mjs status --contract clinicpay-demo-mwgv5r7s.testnet --id INV-TESTNET-1 --rpc https://rpc.testnet.near.org`
+
+Verify everything in two commands (no keys, no network funds):
 
 ```sh
-npm test && (cd contract && cargo test)   # 99 tests, no keys, no network funds
+npm test && (cd contract && cargo test)   # 99 tests
 cd contract && cargo run --example demo   # NEAR + stablecoin invoices, a rollback, insurer adjudication, a gasless payment
 ```
 
@@ -24,6 +31,18 @@ A private clinic bill is rarely paid by one person. The insurer owes one slice, 
 patient owes the co-pay, sometimes an employer scheme owes a third. Today the clinic
 chases each party by email, reconciles bank lines by hand, and cannot easily prove
 who paid what and when. Refunds are another manual round trip.
+
+The numbers behind it:
+
+- Providers collected about **48%** of patient balances in 2022–23 (Kodiak Solutions
+  data, [RevCycleIntelligence](https://revcycleintelligence.com/news/patient-collection-rate-falls-to-nearly-48)).
+- A **manual claim payment costs $3.48** per transaction across the US medical industry,
+  versus $1.85 electronic ([CAQH Index 2024](https://www.caqh.org/hubfs/Index/2024%20Index%20Report/CAQH_IndexReport_2024_FINAL.pdf), claim payment table).
+- Card processing on a co-pay typically costs **2.5–4.5%** per transaction
+  ([Medical Economics](https://www.medicaleconomics.com/view/are-you-being-charged-too-much-for-credit-card-processing-fees-); vendor-sourced, indicative).
+
+ClinicPay does not claim to raise collection rates; it removes the reconciliation,
+the per-payment card fee and the "who paid what" ambiguity, and shows its costs below.
 
 ## What ClinicPay does
 
@@ -63,6 +82,94 @@ who paid what and when. Refunds are another manual round trip.
 - A zero-dependency **CLI** reads invoices straight from chain and exports an
   **accountant-ready CSV** (one row per share, with billed vs approved amounts and the
   adjudication reason).
+
+## What makes it different
+
+- **The insurer's decision is a contract call, not an email.** `adjudicate_share`
+  lets only the named insurer approve all, part or none of its share with an X12
+  CARC-style reason (`CO-45 charge exceeds fee schedule`); the remainder moves to
+  another share in the same call, and the contract refuses any decision that would
+  stop the shares adding up to the bill.
+- **The contract is a meeting point, never a wallet.** Every payment is forwarded to
+  the clinic in the same transaction and rolled back if that fails; tests assert the
+  contract holds 0 after every flow.
+- **Patients pay without NEAR, or from any chain.** NEP-366 gasless payments (the
+  patient's NEAR balance changes by exactly 0) and NEAR Intents 1Click delivery of an
+  exact USDC amount into `ft_on_transfer`.
+- **It speaks the industry's formats.** Accountant CSV per share and a FHIR R4
+  `ClaimResponse` export with CARC-coded adjustments.
+
+## How it works
+
+```mermaid
+flowchart LR
+  P1[Patient on NEAR] -- signed delegate --> R[Relayer NEP-366<br/>checks share, pays gas]
+  P2[Patient on any chain] -- deposit --> I[NEAR Intents 1Click<br/>exact USDC out]
+  INS[Insurer] -- adjudicate_share --> C
+  R --> C[ClinicPay contract<br/>shares, adjudication,<br/>NEP-297 events, holds 0]
+  I -- ft_transfer_call --> C
+  C -- forwarded same tx --> K[Clinic]
+  C -. view calls .-> D[Dashboard, CSV, FHIR]
+```
+
+Try the main workflow on the live testnet invoice (links at the top), or locally with
+`cargo run --example demo`: the clinic creates `INV-2026-0045` for 50 tUSDC
+(patient 10, insurer 40) → the insurer approves 30 with `CO-45` → 10 moves to the
+patient → both pay → **expected outcome:** the dashboard shows the invoice Paid, the
+clinic received exactly 50, the insurer card shows 40 struck through to 30, and
+ClinicPay holds 0.
+
+## Results and validation
+
+Measured on a local NEAR node (nearcore 2.9.0) unless stated; regenerate with
+`cd contract && cargo run --example bench -- 3.12`. Full method in
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md) and [docs/INTENTS.md](docs/INTENTS.md).
+
+| Metric | Result | Evidence |
+| --- | --- | --- |
+| Gas for a stablecoin payment (receive, forward, receipt) | 11.3 Tgas ≈ $0.0035 at $3.12/NEAR | `examples/bench.rs` |
+| Gas for an insurer adjudication | 2.2 Tgas | `examples/bench.rs` |
+| Listing one clinic's invoices with 10 / 100 / 1,000 on the contract | 2.09 Tgas each (was 3.6 / 20.5 / 192.1 with a full scan) | scale section of BENCHMARKS |
+| Storage per invoice | 440 bytes ≈ 0.0044 NEAR | `examples/bench.rs` |
+| Patient's NEAR balance change on a gasless payment | exactly 0 yoctoNEAR | `tests/sandbox_relayer.rs`, demo act 13 |
+| Funds left in ClinicPay after each payment, rollback and refund | 0 | asserted across the sandbox tests and the demo |
+| Lowest gas at which a NEAR Intents delivery settles | 30 Tgas (the verifier's minimum) | `tests/sandbox_intents.rs` gas sweep |
+| Rollback / refund at every gas level 15–50 Tgas | all-or-nothing, nothing stuck | `tests/sandbox_intents.rs` |
+| Live 1Click quote, Base USDC → NEAR USDC | 10.10 in, exactly 10.000000 out, 0 withdraw fee | `docs/INTENTS.md` (dry quote; no real funds moved) |
+| Tests | 99 passing, CI on every push | `npm test`, `cargo test` |
+
+For scale: a card fee on a $50 co-pay is about $1.75 (2.9% + $0.30); a manual claim
+payment costs $3.48 (CAQH 2024). Different units: order of magnitude, not a
+like-for-like saving.
+
+## Engineering challenges
+
+- **Our own gas test passed for the wrong reason.** A NEAR Intents delivery arrives
+  with as little as 30 Tgas. The first sweep counted a successful `ft_transfer_call`
+  as settled, but `ft_transfer_call` succeeds even when the receiver runs out of gas
+  and the tokens bounce back. Checking the share state instead showed we only settled
+  at 45 Tgas. Lowering the static gas on the forward and its callback (15 → 8 Tgas
+  each, with unused gas shared on top) made 30 Tgas settle, and a 15–50 Tgas sweep
+  proves the rollback and the clinic refund stay all-or-nothing.
+- **NEP-366 makes the relayer pay attached deposits.** A relayed `pay_share` would
+  have charged the relayer, not the patient, for the NEAR share. The relayer now
+  refuses NEAR-priced payments and relays only 1-yocto token transfers and 0-deposit
+  adjudications, after checking the share on chain.
+- **A full scan does not survive scale.** Listing a clinic's invoices cost 192 Tgas at
+  1,000 invoices. A per-clinic index keeps it at 2.09 Tgas for 17 extra bytes per invoice.
+- **Every on-chain failure read "unreachable".** `near-sdk` needs the `--cfg near`
+  rustflag to route panic messages; with it, refusals now carry the contract's own text.
+
+## Judging criteria → evidence
+
+| Criterion | Where to look |
+| --- | --- |
+| Real-world value | The problem (sourced figures), insurer adjudication, CSV and FHIR exports |
+| Technical execution | 99 tests, sandbox files, gas sweep, rollback proofs, CI |
+| Use of NEAR | NEP-141 receive and forward, NEP-297 events, NEP-366 relayer, NEAR Intents 1Click, `near-workspaces` |
+| Working demo | Live testnet dashboard and invoice, `cargo run --example demo` |
+| Evidence | [BENCHMARKS](docs/BENCHMARKS.md), [INTENTS](docs/INTENTS.md), Results table above |
+| Honesty | Limitations section below |
 
 ## How NEAR is used
 
@@ -107,8 +214,8 @@ funds needed: everything below runs on a local sandbox node.
    npm test                      # 35 tests: CLI (mock RPC), Intents client, relayer policy, benchmark
    cd contract && cargo test     # 41 unit + 4 NEAR + 5 stablecoin + 5 gasless + 2 deploy-tool + 7 Intents sandbox tests
    ```
-   You should see `test result: ok. 39 passed`, then (in file order) `ok. 4 passed`,
-   `ok. 5 passed`, `ok. 1 passed`, `ok. 5 passed`.
+   You should see `test result: ok. 41 passed`, then (one per sandbox file, in name
+   order) `ok. 4 passed`, `ok. 5 passed`, `ok. 7 passed`, `ok. 2 passed`, `ok. 5 passed`.
    - `tests/sandbox.rs` (NEAR): deploys the wasm, creates an invoice, pays it from two
      accounts, asserts the clinic's balance rose by exactly 5 NEAR and that the
      contract kept nothing, refunds a share, and kills the clinic account to prove a
@@ -406,6 +513,13 @@ clinic cannot receive the token: [`docs/INTENTS.md`](docs/INTENTS.md).
   sandbox; the live testnet invoice is NEAR-priced.
 - Not audited. Do not use with real patient data.
 
+## What's next
+
+1. One real cross-chain payment on mainnet (runbook ready; needs a funded mainnet
+   account and real USDC).
+2. A storage deposit on `create_invoice`, and clinic-chosen adjustment shares.
+3. A pilot with one private clinic, starting with insurer-adjusted co-pays.
+
 ## Libraries and baseline disclosure
 
 - `near-sdk` 5.30, `near-workspaces` 0.24 (dev only), `tokio`, `serde_json`, `anyhow`.
@@ -429,11 +543,14 @@ contract/tests/sandbox.rs  end-to-end tests on a local NEAR node (NEAR invoices)
 contract/tests/sandbox_ft.rs  end-to-end tests with a NEP-141 token (stablecoin invoices, adjudication)
 contract/tests/sandbox_relayer.rs  end-to-end gasless payments through the relayer
 contract/tests/sandbox_ops.rs  end-to-end deploy + clinic tools
-ops/                       deploy.mjs (deploy + init) and clinic.mjs (create / cancel), keys from env
+contract/tests/sandbox_intents.rs  NEAR Intents-style deliveries, gas sweeps, rollback and refund at every gas level
+contract/examples/bench.rs gas, storage and scale benchmark (writes docs/BENCHMARKS.md)
+ops/                       deploy.mjs (deploy + init) and clinic.mjs (create / cancel / register on a token), keys from env
 relayer/                   NEP-366 relayer (policy, serve/submit) + payer signer + tests
 test-token/                minimal NEP-141 test token for those tests (no value)
 contract/examples/demo.rs  live local demo
-cli/                       read-only CLI + tests
+cli/                       read-only CLI (status, CSV, FHIR, pay-from-any-chain via 1Click) + tests
+docs/                      BENCHMARKS.md, INTENTS.md, demo video, hero screenshot
 bench/                     NHS national cost benchmark (665 outpatient procedures) + tests
 web/index.html             landing page
 web/invoice.html           read-only invoice page (payer view)
