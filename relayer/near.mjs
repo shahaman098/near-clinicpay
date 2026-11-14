@@ -81,13 +81,16 @@ export function verifyBytes(pub, bytes, sig) {
 }
 
 // ---- actions ---------------------------------------------------------------
-// Action enum tags (near-primitives `Action`): FunctionCall = 2, Transfer = 3, Delegate = 8.
-const TAG = { FunctionCall: 2, Transfer: 3, Delegate: 8 };
+// Action enum tags (near-primitives `Action`): DeployContract = 1, FunctionCall = 2,
+// Transfer = 3, Delegate = 8.
+const TAG = { DeployContract: 1, FunctionCall: 2, Transfer: 3, Delegate: 8 };
 
 function writeAction(w, a) {
   if (a.type === "FunctionCall") {
     w.u8(TAG.FunctionCall).string(a.method_name).bytes(Buffer.from(JSON.stringify(a.args)))
       .u64(a.gas).u128(a.deposit);
+  } else if (a.type === "DeployContract") {
+    w.u8(TAG.DeployContract).bytes(a.code);
   } else if (a.type === "Transfer") {
     w.u8(TAG.Transfer).u128(a.deposit);
   } else if (a.type === "Delegate") {
@@ -217,4 +220,23 @@ export function outcomeSummary(result) {
   const logs = outcomes.flatMap((o) => o.outcome.logs ?? []);
   const failure = outcomes.map((o) => o.outcome.status?.Failure).find(Boolean) ?? result.status?.Failure ?? null;
   return { logs, failure };
+}
+
+/** Sign a transaction from `account` (its own key) and wait until it is final. */
+export async function signAndSend(url, account, receiver_id, actions) {
+  const key = await accessKey(url, account.accountId, account.signer.publicKey);
+  const block = await latestBlock(url);
+  const { signed, hash } = signTransaction({
+    signer_id: account.accountId, public_key: account.signer.publicKey, nonce: BigInt(key.nonce) + 1n,
+    receiver_id, block_hash: block.hash, actions,
+  }, account.signer);
+  const result = await sendTx(url, signed);
+  return { hash, ...outcomeSummary(result) };
+}
+
+/** {accountId, signer} from <PREFIX>_ACCOUNT_ID and <PREFIX>_PRIVATE_KEY. */
+export function accountFromEnv(prefix, env = process.env) {
+  const id = env[`${prefix}_ACCOUNT_ID`], key = env[`${prefix}_PRIVATE_KEY`];
+  if (!id || !key) throw new Error(`set ${prefix}_ACCOUNT_ID and ${prefix}_PRIVATE_KEY in the environment`);
+  return { accountId: id, signer: parseSecretKey(key) };
 }

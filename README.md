@@ -5,12 +5,12 @@
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
-Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 76 passing (39 unit, 14 sandbox e2e on a real local NEAR node, 23 CLI/relayer/benchmark).
+Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 78 passing (39 unit, 15 sandbox e2e on a real local NEAR node, 24 CLI/relayer/benchmark).
 
 Fastest verification:
 
 ```sh
-npm test && (cd contract && cargo test)   # 76 tests, no keys, no network funds
+npm test && (cd contract && cargo test)   # 78 tests, no keys, no network funds
 cd contract && cargo run --example demo   # NEAR + stablecoin invoices, a rollback, insurer adjudication, a gasless payment
 ```
 
@@ -96,11 +96,11 @@ funds needed: everything below runs on a local sandbox node.
 
 1. **Run all tests.**
    ```sh
-   npm test                      # 23 tests: CLI (mock RPC node), relayer policy + encoding, benchmark
-   cd contract && cargo test     # 39 unit + 4 NEAR sandbox + 5 stablecoin sandbox + 5 gasless sandbox
+   npm test                      # 24 tests: CLI (mock RPC node), relayer policy + encoding, benchmark
+   cd contract && cargo test     # 39 unit + 4 NEAR + 5 stablecoin + 5 gasless + 1 deploy-tool sandbox tests
    ```
-   You should see `test result: ok. 39 passed`, then `ok. 4 passed`, `ok. 5 passed`,
-   `ok. 5 passed`.
+   You should see `test result: ok. 39 passed`, then (in file order) `ok. 4 passed`,
+   `ok. 5 passed`, `ok. 1 passed`, `ok. 5 passed`.
    - `tests/sandbox.rs` (NEAR): deploys the wasm, creates an invoice, pays it from two
      accounts, asserts the clinic's balance rose by exactly 5 NEAR and that the
      contract kept nothing, refunds a share, and kills the clinic account to prove a
@@ -205,6 +205,25 @@ token invoice, `status` prints the `ft_transfer_call` command that pays it.
 Before a token invoice can be paid, **ClinicPay's account and the clinic's account
 must each be registered on the token** (`storage_deposit`). If the clinic is not
 registered, payments are reverted and refunded (that is the rollback test above).
+
+### Deploy to testnet (or any network) without near-cli
+
+```sh
+npm run build:wasm
+# deploy + init in one transaction; the account needs ~4 NEAR for storage
+DEPLOY_ACCOUNT_ID=clinicpay-demo.testnet DEPLOY_PRIVATE_KEY=ed25519:... node ops/deploy.mjs
+# the clinic creates (or cancels) an invoice with its own key
+CLINIC_ACCOUNT_ID=clinic-demo.testnet CLINIC_PRIVATE_KEY=ed25519:... node ops/clinic.mjs create \
+  --contract clinicpay-demo.testnet --id INV-8 --memo "GP visit" \
+  --line "Consultation=2" --line "Blood panel=3" \
+  --share "Patient co-pay:patient-demo.testnet=1" --share "Insurer:insurer-demo.testnet=4"
+```
+
+Then open `web/clinic.html?contract=clinicpay-demo.testnet&clinic=clinic-demo.testnet`
+(testnet RPC is the default). `tests/sandbox_ops.rs` runs exactly these two tools against
+a local node: deploy and init, create, cancel, an upgrade with `--no-init` that keeps
+the state, and a clinic error that comes back with the contract's message. Keys come
+from the environment only, and the test checks that no key is printed.
 
 ### Gasless payments (NEP-366 relayer)
 
@@ -321,8 +340,10 @@ Open Government Licence v3.0. The tool is offline and read-only. The bands
   have no automated browser tests and have not been used against testnet or mainnet.
 
   ![ClinicPay invoice page, read live from the local sandbox](web/invoice-page.png)
-- Not deployed to testnet or mainnet from this repo: deploying needs the team's own
-  NEAR account. All demonstrated flows run on the local sandbox.
+- Not deployed to testnet or mainnet yet: deploying needs the team's own funded NEAR
+  account. `ops/deploy.mjs` makes that one command, and it is tested end to end on a
+  local node running nearcore 2.9 (testnet runs 2.14). All demonstrated flows run on
+  the local sandbox.
 - Not audited. Do not use with real patient data.
 
 ## Libraries and baseline disclosure
@@ -330,7 +351,7 @@ Open Government Licence v3.0. The tool is offline and read-only. The bands
 - `near-sdk` 5.30, `near-workspaces` 0.24 (dev only), `tokio`, `serde_json`, `anyhow`.
 - `test-token/`: `near-contract-standards` 5.30 fungible-token implementation, used only
   by the sandbox tests.
-- CLI, relayer, page and benchmark: Node standard library and browser APIs only
+- CLI, relayer, ops tools, pages and benchmark: Node standard library and browser APIs only
   (the relayer's borsh, base58 and ed25519 signing are written against
   `near-primitives` 0.38 layouts and verified by the sandbox node accepting them).
 - `bench/nhs_outpatient_procedures_2025_26.csv`: extracted from the NHS England
@@ -347,6 +368,8 @@ contract/src/lib.rs        the NEAR contract + unit tests
 contract/tests/sandbox.rs  end-to-end tests on a local NEAR node (NEAR invoices)
 contract/tests/sandbox_ft.rs  end-to-end tests with a NEP-141 token (stablecoin invoices, adjudication)
 contract/tests/sandbox_relayer.rs  end-to-end gasless payments through the relayer
+contract/tests/sandbox_ops.rs  end-to-end deploy + clinic tools
+ops/                       deploy.mjs (deploy + init) and clinic.mjs (create / cancel), keys from env
 relayer/                   NEP-366 relayer (policy, serve/submit) + payer signer + tests
 test-token/                minimal NEP-141 test token for those tests (no value)
 contract/examples/demo.rs  live local demo
