@@ -4,7 +4,7 @@
 import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import {
-  DEFAULT_RPC, buildCreateArgs, describe, invoicesToCsv, listAll, payCommand, tokenMetas,
+  DEFAULT_RPC, buildCreateArgs, describe, fromUnits, invoicesToCsv, listAll, payCommand, tokenMetas,
   unitsOf, view,
 } from "./lib.mjs";
 
@@ -52,7 +52,12 @@ async function main(argv) {
     if (!inv) throw new Error(`no invoice "${v.id}" on ${v.contract}`);
     const status = await view(v.rpc, v.contract, "get_status", { invoice_id: v.id });
     const metas = await tokenMetas(v.rpc, [inv]);
-    console.log(describe(inv, status, unitsOf(inv, (t) => metas.get(t))));
+    const units = unitsOf(inv, (t) => metas.get(t));
+    console.log(describe(inv, status, units));
+    if (inv.token) {
+      const held = await view(v.rpc, inv.token, "ft_balance_of", { account_id: v.contract });
+      console.log(`\nClinicPay holds ${fromUnits(held, units.decimals)} ${units.symbol} of this token (nothing custodied).`);
+    }
     inv.shares.forEach((s, i) => {
       if (s.state === "Open") {
         console.log(`\nPay share #${i}:\n  ${payCommand(v.contract, inv.id, i, s.amount, "testnet", inv.token ?? null)}`);

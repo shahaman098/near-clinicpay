@@ -96,6 +96,7 @@ test("CLI status and export against a mock RPC node", async () => {
       const reply = {
         get_invoice: inv, get_status: "PartiallyPaid", list_invoices: [invoice, ftInvoice],
         ft_metadata: { spec: "ft-1.0.0", name: "USD Coin", symbol: "USDC", decimals: 6 },
+        ft_balance_of: "0",
       }[p.method_name];
       res.setHeader("content-type", "application/json");
       res.end(JSON.stringify({ jsonrpc: "2.0", id: "clinicpay", result: { result: [...Buffer.from(JSON.stringify(reply))] } }));
@@ -111,6 +112,7 @@ test("CLI status and export against a mock RPC node", async () => {
     const ft = await run("node", ["cli/clinicpay.mjs", "status", "--contract", "c.testnet", "--id", "FT-1", "--rpc", rpc]);
     assert.match(ft.stdout, /Paid in: USDC \(NEP-141 token usdc.testnet\)/);
     assert.match(ft.stdout, /TOTAL\s+50 USDC/);
+    assert.match(ft.stdout, /ClinicPay holds 0 USDC/);
     assert.match(ft.stdout, /usdc.testnet ft_transfer_call/);
     const ex = await run("node", ["cli/clinicpay.mjs", "export", "--contract", "c.testnet", "--clinic", "clinic.testnet", "--rpc", rpc]);
     const rows = ex.stdout.trim().split("\n");
