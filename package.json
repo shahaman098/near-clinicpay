@@ -5,12 +5,16 @@
   "license": "MIT",
   "type": "module",
   "private": true,
-  "bin": { "clinicpay": "cli/clinicpay.mjs" },
+  "bin": {
+    "clinicpay": "cli/clinicpay.mjs"
+  },
   "scripts": {
-    "test": "node --test cli/",
+    "test": "node --test cli/ bench/",
     "test:contract": "cd contract && cargo test",
     "build:wasm": "cd contract && cargo build --target wasm32-unknown-unknown --release",
     "test:all": "npm test && npm run test:contract"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }

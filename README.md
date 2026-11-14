@@ -48,7 +48,7 @@ funds needed: everything below runs on a local sandbox node.
 
 1. **Run all tests.**
    ```sh
-   npm test                      # 8 CLI tests (mock RPC node)
+   npm test                      # 12 tests: CLI against a mock RPC node + price benchmark
    cd contract && cargo test     # 24 unit tests + 4 NEAR sandbox tests + 4 stablecoin sandbox tests
    ```
    You should see `test result: ok. 24 passed`, then `ok. 4 passed` twice.
@@ -126,6 +126,29 @@ Before a token invoice can be paid, **ClinicPay's account and the clinic's accou
 must each be registered on the token** (`storage_deposit`). If the clinic is not
 registered, payments are reverted and refunded (that is the rollback test above).
 
+### Check a price against NHS national costs (optional)
+
+Before the bill goes on chain, the clinic can compare each line item to the
+national average unit cost. It is advisory and off-chain; the contract never sees
+these prices.
+
+```sh
+node bench/bench.mjs --code AB23Z --amount 700
+node bench/bench.mjs --search acupuncture
+```
+
+```
+AB23Z  Acupuncture for Pain Management
+National average unit cost: £231.56
+Your amount:                £700.00
+Difference:                 +£468.44 (+202.3%) — out of line
+```
+
+Bundled data: 665 outpatient procedures from the **NHS England National Cost
+Collection, National Schedule of NHS costs 2025/26** (Outpatient Procedures),
+extracted 2026-11-14. Contains public sector information licensed under the
+Open Government Licence v3.0. The tool is offline and read-only.
+
 ## Security notes
 
 - The contract never custodies funds: payment is forwarded in the same call, and a
@@ -148,6 +171,9 @@ registered, payments are reverted and refunded (that is the rollback test above)
   Any standard NEP-141 token works the same way.
 - No meta-transaction relayer yet, so payers still need a little NEAR for gas. No
   NEAR Intents yet, so payers need the token on NEAR (no cross-chain payment).
+- The NHS benchmark is an England-wide 2025/26 national average, not a negotiated
+  tariff, and it is advisory: it informs the clinic before invoicing, and the contract
+  does not read it.
 - `cargo run --example demo` shows both flows and one failure: the NEAR invoice, the
   stablecoin invoice paid through a local 6-decimal test token, then a payment the
   clinic cannot receive, which is reverted and refunded. `tests/sandbox_ft.rs` proves
@@ -170,7 +196,10 @@ registered, payments are reverted and refunded (that is the rollback test above)
 - `near-sdk` 5.30, `near-workspaces` 0.24 (dev only), `tokio`, `serde_json`, `anyhow`.
 - `test-token/`: `near-contract-standards` 5.30 fungible-token implementation, used only
   by the sandbox tests.
-- CLI and page: Node standard library and browser APIs only.
+- CLI, page and benchmark: Node standard library and browser APIs only.
+- `bench/nhs_outpatient_procedures_2025_26.csv`: extracted from the NHS England
+  National Cost Collection (National Schedule of NHS costs 2025/26, Outpatient
+  Procedures), licensed under the Open Government Licence v3.0.
 - Everything in this repository was written during the hackathon window for this
   entry. It is inspired by the owner's product Boto (boto.clinic, a clinic OS), but
   no Boto code is included. Written with AI coding assistance (disclosed per hackathon rule Q-005).
@@ -184,6 +213,7 @@ contract/tests/sandbox_ft.rs  end-to-end tests with a NEP-141 token (stablecoin 
 test-token/                minimal NEP-141 test token for those tests (no value)
 contract/examples/demo.rs  live local demo
 cli/                       read-only CLI + tests
+bench/                     NHS national cost benchmark (665 outpatient procedures) + tests
 web/invoice.html           read-only invoice viewer
 ```
 

@@ -1,0 +1,666 @@
+currency_code,description,national_average_unit_cost_gbp
+AA32Z,Neuropsychology Tests,442.30
+AA33C,"Conventional EEG, EMG or Nerve Conduction Studies, 19 years and over",347.80
+AA33D,"Conventional EEG, EMG or Nerve Conduction Studies, 18 years and under",443.00
+AA50C,"Very Complex Intracranial Procedures, 19 years and over, with CC Score 0-5",630.30
+AA51D,"Complex Intracranial Procedures, 19 years and over, with CC Score 0-3",185.85
+AA52D,"Very Major Intracranial Procedures, 19 years and over, with CC Score 0-3",270.17
+AA53D,"Major Intracranial Procedures, 19 years and over, with CC Score 0-3",352.25
+AA53G,"Major Intracranial Procedures, 18 years and under, with CC Score 0-3",737.08
+AA54C,"Intermediate Intracranial Procedures, 19 years and over, with CC Score 0-1",259.45
+AA55C,"Minor Intracranial Procedures, 19 years and over, with CC Score 0-1",171.47
+AA56B,"Minor or Intermediate, Intracranial Procedures, 18 years and under, with CC Score 0-3",423.31
+AA57A,"Minimal Intracranial Procedures, 19 years and over",385.05
+AA57B,"Minimal Intracranial Procedures, 18 years and under",492.85
+AA60A,"Insertion of Neurostimulator for Treatment of Neurological Conditions, 19 years and over",300.07
+AA71B,"Stereotactic Intracranial Radiosurgery, for Neoplasms or Other Neurological Conditions, with CC Score 0-3",369.76
+AA80Z,Complex Long-Term EEG Monitoring,727.00
+AA81Z,Standard Long-Term EEG Monitoring,562.72
+AA83Z,Intracranial Telemetry,531.42
+AB11Z,Cognitive Behavioural Therapy as part of a Pain Management Programme,305.64
+AB15Z,"Radiofrequency Ablation or Cryoablation, for Pain Management",252.37
+AB16Z,"Denervation or Injection around Spinal Facet, for Pain Management",174.30
+AB18Z,Continuous Infusion of Therapeutic Substance for Pain Management,353.30
+AB20Z,Epidural Under Image Control for Pain Management,140.19
+AB21Z,"Epidural or Therapeutic Spinal Puncture, for Pain Management",419.38
+AB22Z,Trigger Point Injection for Pain Management,406.05
+AB23Z,Acupuncture for Pain Management,231.56
+AB24Z,Alteration of Function of Nerve for Pain Management,477.30
+AB25Z,"Nerve Block or Destruction of Nerve, Under Image Control, for Pain Management",136.83
+AB26Z,"Nerve Block or Destruction of Nerve, for Pain Management",242.51
+AB27Z,Injection of Therapeutic Substance into Joint Under Image Control for Pain Management,144.75
+AB28Z,Injection of Therapeutic Substance into Joint for Pain Management,214.00
+BZ31B,"Very Major, Cataract or Lens Procedures, with CC Score 0-1",198.63
+BZ32B,"Intermediate, Cataract or Lens Procedures, with CC Score 0-1",197.24
+BZ33Z,"Minor, Cataract or Lens Procedures",197.92
+BZ34C,"Phacoemulsification Cataract Extraction and Lens Implant, with CC Score 0-1",180.74
+BZ40Z,Very Complex Oculoplastics Procedures,203.71
+BZ41B,"Complex Oculoplastics Procedures, 19 years and over, with CC Score 0-1",238.52
+BZ42B,"Very Major Oculoplastics Procedures, 19 years and over, with CC Score 0-1",253.93
+BZ44B,"Major Oculoplastics Procedures, 19 years and over, with CC Score 0-1",232.80
+BZ44C,"Major Oculoplastics Procedures, 18 years and under",241.00
+BZ45B,"Intermediate Oculoplastics Procedures, 19 years and over, with CC Score 0-1",251.38
+BZ45C,"Intermediate Oculoplastics Procedures, between 4 and 18 years",262.43
+BZ45D,"Intermediate Oculoplastics Procedures, 3 years and under",304.88
+BZ46A,"Minor Oculoplastics Procedures, 19 years and over",224.16
+BZ46B,"Minor Oculoplastics Procedures, 18 years and under",191.00
+BZ50Z,"Very Complex, Orbit or Lacrimal Procedures, 19 years and over",417.80
+BZ51B,"Complex, Orbit or Lacrimal Procedures, 19 years and over, with CC Score 0",259.21
+BZ53B,"Very Major, Orbit or Lacrimal Procedures, 19 years and over, with CC Score 0",410.43
+BZ54B,"Major, Orbit or Lacrimal Procedures, 19 years and over, with CC Score 0",282.52
+BZ55Z,"Very Major or Major, Orbit or Lacrimal Procedures, 18 years and under",469.60
+BZ56B,"Intermediate, Orbit or Lacrimal Procedures, 19 years and over, with CC Score 0",252.11
+BZ56C,"Intermediate, Orbit or Lacrimal Procedures, 18 years and under",261.21
+BZ57A,"Minor, Orbit or Lacrimal Procedures, 19 years and over",216.15
+BZ57B,"Minor, Orbit or Lacrimal Procedures, 18 years and under",194.74
+BZ60B,"Very Complex, Cornea or Sclera Procedures, with CC Score 0-1",273.39
+BZ61B,"Complex, Cornea or Sclera Procedures, with CC Score 0-1",245.82
+BZ62B,"Very Major, Cornea or Sclera Procedures, with CC Score 0",193.95
+BZ63B,"Major, Cornea or Sclera Procedures, with CC Score 0",229.52
+BZ64B,"Intermediate, Cornea or Sclera Procedures, with CC Score 0",196.64
+BZ65Z,"Minor, Cornea or Sclera Procedures",163.93
+BZ72A,"Major Ocular Motility Procedures, 19 years and over",186.45
+BZ73A,"Intermediate Ocular Motility Procedures, 19 years and over",242.16
+BZ74Z,Minor Ocular Motility Procedures,163.87
+BZ80B,"Very Complex Vitreous Retinal Procedures, 19 years and over, with CC Score 0-1",151.53
+BZ81B,"Complex Vitreous Retinal Procedures, 19 years and over, with CC Score 0-1",193.28
+BZ83B,"Very Major Vitreous Retinal Procedures, 19 years and over, with CC Score 0-1",218.59
+BZ84B,"Major Vitreous Retinal Procedures, 19 years and over, with CC Score 0-1",212.69
+BZ85Z,"Very Major or Major, Vitreous Retinal Procedures, 18 years and under",557.81
+BZ86B,"Intermediate Vitreous Retinal Procedures, 19 years and over, with CC Score 0-1",157.23
+BZ86C,"Intermediate Vitreous Retinal Procedures, 18 years and under",266.22
+BZ87A,"Minor Vitreous Retinal Procedures, 19 years and over",183.20
+BZ87B,"Minor Vitreous Retinal Procedures, between 4 and 18 years",196.57
+BZ87C,"Minor Vitreous Retinal Procedures, 3 years and under",181.27
+BZ88A,"Retinal Tomography, 19 years and over",171.30
+BZ88B,"Retinal Tomography, 18 years and under",187.87
+BZ89A,"Digital Retinal Photography, 19 years and over",146.76
+BZ89B,"Digital Retinal Photography, 18 years and under",243.72
+BZ90Z,"Very Complex, Glaucoma or Iris Procedures",289.75
+BZ91B,"Complex, Glaucoma or Iris Procedures, with CC Score 0-1",177.77
+BZ92B,"Very Major, Glaucoma or Iris Procedures, with CC Score 0-1",128.96
+BZ93B,"Major, Glaucoma or Iris Procedures, with CC Score 0-1",204.66
+BZ94B,"Intermediate, Glaucoma or Iris Procedures, with CC Score 0",195.53
+BZ95Z,"Minor, Glaucoma or Iris Procedures",208.57
+CA02B,"Very Major, Head or Neck Procedures, with CC Score 0-1",169.08
+CA03B,"Major, Head or Neck Procedures, with CC Score 0-1",236.17
+CA04A,"Intermediate, Head or Neck Procedures, 19 years and over",586.14
+CA04B,"Intermediate, Head or Neck Procedures, 18 years and under",245.39
+CA05A,"Minor, Head or Neck Procedures, 19 years and over",360.18
+CA10A,"Septorhinoplasty, 19 years and over",215.50
+CA11A,"Septoplasty, 19 years and over",133.16
+CA12Z,Major Treatment of Epistaxis,219.20
+CA13A,"Minor Treatment of Epistaxis, 19 years and over",202.04
+CA13B,"Minor Treatment of Epistaxis, 18 years and under",190.78
+CA14Z,Nasal Polypectomy,699.64
+CA15Z,"Excision or Biopsy, of Lesion of Internal Nose",312.31
+CA16Z,"Excision or Biopsy, of Lesion of External Nose",515.12
+CA21Z,Very Major Nose Procedures,219.83
+CA22Z,Major Nose Procedures,196.42
+CA23Z,Intermediate Nose Procedures,404.75
+CA24A,"Minor Nose Procedures, 19 years and over",290.08
+CA24B,"Minor Nose Procedures, 18 years and under",206.65
+CA25A,"Minimal Nose Procedures, 19 years and over",221.63
+CA25B,"Minimal Nose Procedures, 18 years and under",198.17
+CA28Z,Intermediate Sinus Procedures,448.94
+CA29Z,Minor Sinus Procedures,214.32
+CA30A,"Radical or Revisional, Mastoid Procedures, 19 years and over",179.83
+CA31Z,"Simple or Cortical, Mastoid Procedures",168.46
+CA32A,"Tympanoplasty, 19 years and over",335.36
+CA34A,"Excision or Biopsy, of Lesion of External Ear, 19 years and over",377.53
+CA34B,"Excision or Biopsy, of Lesion of External Ear, 18 years and under",247.08
+CA35A,"Insertion of Grommets, 19 years and over",231.42
+CA35B,"Insertion of Grommets, between 2 and 18 years",174.30
+CA36A,"Clearance of External Auditory Canal, 19 years and over",188.28
+CA36B,"Clearance of External Auditory Canal, 18 years and under",195.78
+CA37A,"Audiometry or Hearing Assessment, 19 years and over",163.24
+CA37B,"Audiometry or Hearing Assessment, between 5 and 18 years",176.24
+CA37C,"Audiometry or Hearing Assessment, 4 years and under",158.62
+CA38A,"Evoked Potential Recording, 19 years and over",316.20
+CA38B,"Evoked Potential Recording, 18 years and under",317.96
+CA39Z,Fixture for Bone Anchored Hearing Aids,256.79
+CA40Z,Fitting of Bone Anchored Hearing Aids,567.04
+CA42Z,Unilateral Cochlear Implant,207.69
+CA43Z,Balance Assessment,211.67
+CA52A,"Major Ear Procedures, 19 years and over",303.65
+CA52B,"Major Ear Procedures, 18 years and under",165.40
+CA53A,"Intermediate Ear Procedures, 19 years and over",183.41
+CA53B,"Intermediate Ear Procedures, 18 years and under",284.84
+CA54A,"Minor Ear Procedures, 19 years and over",192.72
+CA54B,"Minor Ear Procedures, 18 years and under",205.48
+CA55A,"Minimal Ear Procedures, 19 years and over",187.86
+CA55B,"Minimal Ear Procedures, 18 years and under",185.45
+CA60C,"Tonsillectomy, 4 years and over",349.04
+CA63Z,Tracheostomy,253.55
+CA65Z,Frenotomy or Frenectomy,319.70
+CA66A,"Excision or Biopsy, of Lesion of Mouth, 19 years and over",417.44
+CA66B,"Excision or Biopsy, of Lesion of Mouth, 18 years and under",391.45
+CA67B,"Complex Therapeutic Endoscopic, Larynx or Pharynx Procedures, with CC Score 0-1",302.18
+CA68A,"Therapeutic Endoscopic, Larynx or Pharynx Procedures, 19 years and over",260.99
+CA68B,"Therapeutic Endoscopic, Larynx or Pharynx Procedures, 18 years and under",184.81
+CA69A,"Diagnostic, Laryngoscopy or Pharyngoscopy, 19 years and over",256.29
+CA69B,"Diagnostic, Laryngoscopy or Pharyngoscopy, between 2 and 18 years",214.14
+CA69C,"Diagnostic, Laryngoscopy or Pharyngoscopy, 1 year and under",235.68
+CA70Z,Diagnostic Examination of Upper Respiratory Tract and Upper Gastrointestinal Tract,163.71
+CA71A,"Diagnostic Nasopharyngoscopy, 19 years and over",242.33
+CA71B,"Diagnostic Nasopharyngoscopy, 18 years and under",202.98
+CA80C,"Very Complex, Mouth or Throat Procedures, with CC Score 0-1",169.53
+CA81B,"Complex, Mouth or Throat Procedures, 19 years and over, with CC Score 0-1",251.89
+CA81C,"Complex, Mouth or Throat Procedures, between 2 and 18 years",223.47
+CA82B,"Very Major, Mouth or Throat Procedures, 19 years and over, with CC Score 0-1",367.25
+CA82C,"Very Major, Mouth or Throat Procedures, between 2 and 18 years",343.47
+CA83B,"Major, Mouth or Throat Procedures, 19 years and over, with CC Score 0-1",239.08
+CA83C,"Major, Mouth or Throat Procedures, 18 years and under",418.81
+CA84B,"Intermediate, Mouth or Throat Procedures, 19 years and over, with CC Score 0-1",416.54
+CA84C,"Intermediate, Mouth or Throat Procedures, 18 years and under",431.40
+CA85A,"Minor, Mouth or Throat Procedures, 19 years and over",314.63
+CA85B,"Minor, Mouth or Throat Procedures, between 2 and 18 years",324.94
+CA85C,"Minor, Mouth or Throat Procedures, 1 year and under",304.96
+CA86A,"Minimal, Mouth or Throat Procedures, 19 years and over",403.99
+CA86B,"Minimal, Mouth or Throat Procedures, between 2 and 18 years",363.17
+CA86C,"Minimal, Mouth or Throat Procedures, 1 year and under",224.43
+CA92B,Very Major Maxillofacial Procedures with CC Score 0,446.71
+CA93B,"Major Maxillofacial Procedures, 19 years and over, with CC Score 0",304.92
+CA94Z,Intermediate Maxillofacial Procedures,335.72
+CA95Z,Minor Maxillofacial Procedures,372.93
+CA96Z,"Reduction or Fixation, of Jaw",297.03
+CA98Z,Reduction of Fracture of Nasal Bone,222.63
+CD01A,"Major Dental Procedures, 19 years and over",537.68
+CD01B,"Major Dental Procedures, 18 years and under",472.54
+CD02A,"Intermediate Dental Procedures, 19 years and over",296.53
+CD02B,"Intermediate Dental Procedures, 18 years and under",253.93
+CD03A,"Minor Dental Procedures, 19 years and over",397.20
+CD03B,"Minor Dental Procedures, 18 years and under",340.03
+CD04A,"Major Surgical Removal of Tooth, 19 years and over",359.17
+CD04B,"Major Surgical Removal of Tooth, 18 years and under",370.25
+CD05A,"Surgical Removal of Tooth, 19 years and over",379.31
+CD05B,"Surgical Removal of Tooth, 18 years and under",390.44
+CD06A,"Extraction of Multiple Teeth, 19 years and over",385.96
+CD06B,"Extraction of Multiple Teeth, 18 years and under",370.09
+CD07A,"Simple Extraction of Tooth, 19 years and over",389.86
+CD07B,"Simple Extraction of Tooth, 18 years and under",399.51
+CD08Z,Biopsy of Gingiva,428.60
+CD09A,"Dental Restoration Procedures, 19 years and over",492.37
+CD09B,"Dental Restoration Procedures, 18 years and under",422.83
+CD10A,"Creation of Dental Impression, 19 years and over",391.91
+CD10B,"Creation of Dental Impression, 18 years and under",297.85
+CD11A,"Dental Fitting or Insertion Procedures, 19 years and over",339.19
+CD11B,"Dental Fitting or Insertion Procedures, 18 years and under",260.56
+CD12A,"Adjustment of Dental Device, 19 years and over",264.26
+CD12B,"Adjustment of Dental Device, 18 years and under",238.17
+DZ02K,"Complex Thoracic Procedures, 19 years and over, with CC Score 0-2",1119.77
+DZ02L,"Complex Thoracic Procedures, between 2 and 18 years",837.60
+DZ30Z,Chest Physiotherapy,225.95
+DZ31Z,Cardiopulmonary Exercise Testing,397.44
+DZ32Z,Field Exercise Test or Measurement of Fractional Exhaled Nitric Oxide,270.21
+DZ33Z,Hyperbaric Oxygen Treatment,194.97
+DZ36Z,Bronchial Challenge Studies,172.81
+DZ37A,"Non-Invasive Ventilation Support Assessment, 19 years and over",193.98
+DZ37B,"Non-Invasive Ventilation Support Assessment, 18 years and under",382.35
+DZ38Z,Oxygen Assessment and Monitoring,286.54
+DZ42Z,TB Nurse Support,292.70
+DZ45Z,Lung Volume Studies,214.63
+DZ46Z,Respiratory Muscle Strength Studies,310.66
+DZ49Z,"Respiratory Nurse or AHP, Education or Support",261.12
+DZ50Z,Respiratory Sleep Study,202.00
+DZ52Z,Full Pulmonary Function Testing,253.91
+DZ55Z,Bronchodilator Studies,215.17
+DZ56Z,Carbon Monoxide Transfer Factor Test,258.72
+DZ57Z,Oximetry or Blood Gas Studies,249.67
+DZ58Z,Alveolar Carbon Monoxide Measurement or Smoking Cessation Support,265.69
+DZ59Z,Airflow Studies,300.68
+DZ60Z,Hypoxic (Altitude) or Hyperoxic (Shunt) Assessment,306.48
+DZ63C,"Major Thoracic Procedures, 19 years and over, with CC Score 0-2",223.67
+DZ64C,"Intermediate Thoracic Procedures, 19 years and over, with CC Score 0-2",337.83
+DZ67Z,Major Therapeutic Bronchoscopy,221.73
+DZ68Z,Therapeutic Bronchoscopy,433.34
+DZ69A,"Diagnostic Bronchoscopy, 19 years and over",288.71
+DZ69B,"Diagnostic Bronchoscopy, 18 years and under",205.28
+DZ70Z,Endobronchial Ultrasound Examination of Mediastinum,562.82
+DZ71Z,Minor Thoracic Procedures,392.53
+EC10C,Very Complex Procedures for Congenital Heart Disease with CC Score 0-6,499.37
+EC12C,Very Major Procedures for Congenital Heart Disease with CC Score 0-3,329.68
+EC13C,Major Procedures for Congenital Heart Disease with CC Score 0-3,398.39
+EC14C,Intermediate Procedures for Congenital Heart Disease with CC Score 0-3,243.08
+EC15B,Minor Procedures for Congenital Heart Disease with CC Score 0-3,620.82
+EC20B,Diagnostic Percutaneous Intervention for Congenital Heart Disease with CC Score 0-3,420.31
+EC21Z,Complex Echocardiogram for Congenital Heart Disease,362.50
+EC22Z,"Electrocardiogram Monitoring or Stress Testing, for Congenital Heart Disease",211.78
+ED25C,"Standard, Single Heart Valve Replacement or Repair, with CC Score 0-5",331.00
+ED31C,"Standard, Other Operations on Heart or Pericardium, with CC Score 0-4",223.02
+EY01B,"Implantation of Cardioverter Defibrillator with Cardiac Resynchronisation Therapy, with CC Score 0-8",263.99
+EY02B,Implantation of Cardioverter Defibrillator with CC Score 0-8,296.38
+EY04B,Implantation of Biventricular Pacemaker with CC Score 0-5,413.47
+EY06E,Implantation of Dual-Chamber Pacemaker with CC Score 0-2,108.05
+EY08E,Implantation of Single-Chamber Pacemaker with CC Score 0-2,270.84
+EY11Z,Testing of Cardiac Pacemaker or Cardioverter Defibrillator,157.35
+EY12B,Implantation of Electrocardiography Loop Recorder with CC Score 0-2,918.91
+EY13Z,Removal of Electrocardiography Loop Recorder,356.54
+EY17B,"Explantation or Attention to, Cardiac Pacemaker or Cardioverter Defibrillator, with CC Score 0-5",134.87
+EY22C,Complex Other Percutaneous Transluminal Repair of Acquired Defect of Heart with CC Score 0-4,188.12
+EY23C,Standard Other Percutaneous Transluminal Repair of Acquired Defect of Heart with CC Score 0-4,1633.18
+EY32B,Percutaneous Diagnostic Electrophysiology Studies with CC Score 0-1,128.24
+EY41D,Standard Percutaneous Transluminal Coronary Angioplasty with CC Score 0-3,236.80
+EY42D,Complex Cardiac Catheterisation with CC Score 0-1,377.77
+EY43F,Standard Cardiac Catheterisation with CC Score 0-1,259.09
+EY50Z,Complex Echocardiogram,271.99
+EY51Z,Electrocardiogram Monitoring or Stress Testing,181.19
+FE01Z,"Complex Therapeutic Endoscopic, Upper or Lower Gastrointestinal Tract Procedures",875.58
+FE02C,"Major Therapeutic Endoscopic, Upper or Lower Gastrointestinal Tract Procedures, 19 years and over, with CC Score 0",354.24
+FE03A,"Intermediate Therapeutic Endoscopic, Upper or Lower Gastrointestinal Tract Procedures, 19 years and over",1308.39
+FE10D,Endoscopic Insertion of Luminal Stent into Gastrointestinal Tract with CC Score 0,278.71
+FE11D,"Endoscopic, Sclerotherapy or Rubber Band Ligation, of Lesion of Upper Gastrointestinal Tract, with CC Score 0-2",288.01
+FE12A,"Endoscopic Insertion of Gastrostomy Tube, 19 years and over",587.47
+FE12B,"Endoscopic Insertion of Gastrostomy Tube, 18 years and under",502.06
+FE20Z,"Therapeutic Endoscopic Upper Gastrointestinal Tract Procedures, 19 years and over",463.18
+FE21Z,"Diagnostic Endoscopic Upper Gastrointestinal Tract Procedures with Biopsy, 19 years and over",1168.92
+FE22Z,"Diagnostic Endoscopic Upper Gastrointestinal Tract Procedures, 19 years and over",702.83
+FE23C,"Endoscopic or Intermediate, Upper Gastrointestinal Tract Procedures, between 5 and 18 years",253.98
+FE23D,"Endoscopic or Intermediate, Upper Gastrointestinal Tract Procedures, 4 years and under",353.00
+FE30Z,"Therapeutic Colonoscopy, 19 years and over",1300.74
+FE31Z,"Diagnostic Colonoscopy with Biopsy, 19 years and over",1633.09
+FE32Z,"Diagnostic Colonoscopy, 19 years and over",979.78
+FE33Z,"Therapeutic Flexible Sigmoidoscopy, 19 years and over",1261.60
+FE34Z,"Diagnostic Flexible Sigmoidoscopy with Biopsy, 19 years and over",1091.68
+FE35Z,"Diagnostic Flexible Sigmoidoscopy, 19 years and over",549.87
+FE36Z,"Diagnostic or Therapeutic, Rigid Sigmoidoscopy, 19 years and over",269.69
+FE37C,"Endoscopic or Intermediate, Lower Gastrointestinal Tract Procedures, between 5 and 18 years",197.15
+FE37D,"Endoscopic or Intermediate, Lower Gastrointestinal Tract Procedures, 4 years and under",150.67
+FE40Z,"Therapeutic, Upper Gastrointestinal Tract Endoscopic Procedure with Colonoscopy, 19 years and over",1270.08
+FE41Z,"Diagnostic, Upper Gastrointestinal Tract Endoscopic Procedure with Colonoscopy, with Biopsy, 19 years and over",1307.32
+FE42Z,"Diagnostic, Upper Gastrointestinal Tract Endoscopic Procedure with Colonoscopy, 19 years and over",1027.47
+FE46Z,"Upper Gastrointestinal Tract Endoscopic Procedure, with Colonoscopy or Sigmoidoscopy, 18 years and under",73.37
+FE50A,"Wireless Capsule Endoscopy, 19 years and over",361.18
+FE50B,"Wireless Capsule Endoscopy, 18 years and under",378.82
+FF02C,"Complex, Oesophageal, Stomach or Duodenum Procedures, 19 years and over, with CC Score 0-1",534.44
+FF03B,"Very Complex or Complex, Oesophageal, Stomach or Duodenum Procedures, 18 years and under, with CC Score 0-1",613.76
+FF04D,"Major, Oesophageal, Stomach or Duodenum Procedures, 19 years and over, with CC Score 0-1",466.27
+FF04F,"Major, Oesophageal, Stomach or Duodenum Procedures, between 2 and 18 years, with CC Score 0",942.17
+FF04H,"Major, Oesophageal, Stomach or Duodenum Procedures, 1 year and under, with CC Score 0",1007.01
+FF05Z,"Intermediate Upper Gastrointestinal Tract Procedures, 19 years and over",244.58
+FF14Z,Adjustment of Gastric Band for Obesity,136.82
+FF21D,"Very Major Small Intestine Procedures, 19 years and over, with CC Score 0-1",203.31
+FF22D,"Major Small Intestine Procedures, 19 years and over, with CC Score 0-1",314.10
+FF23B,"Very Major or Major, Small Intestine Procedures, between 2 and 18 years, with CC Score 0-1",370.90
+FF23E,"Very Major or Major, Small Intestine Procedures, 1 year and under, with CC Score 0",396.59
+FF31D,"Complex Large Intestine Procedures, 19 years and over, with CC Score 0-2",242.84
+FF34C,"Major Large Intestine Procedures, 19 years and over, with CC Score 0",1057.54
+FF35B,"Complex or Major, Large Intestine Procedures, between 2 and 18 years, with CC Score 0",177.53
+FF36Z,"Intermediate Large Intestine Procedures, 19 years and over",319.54
+FF37D,"Appendicectomy Procedures, 19 years and over, with CC Score 0",342.90
+FF40B,"Major Anal Procedures, 19 years and over, with CC Score 0",185.96
+FF41C,"Intermediate Anal Procedures, 19 years and over, with CC Score 0",454.17
+FF41D,"Intermediate Anal Procedures, 18 years and under",120.90
+FF42Z,Minor Anal Procedures,213.20
+FF43Z,Minimal Anal Procedures,306.35
+FF50C,Complex General Abdominal Procedures with CC Score 0-2,433.81
+FF51E,"Major General Abdominal Procedures, 19 years and over, with CC Score 0",176.73
+FF52C,"Intermediate Therapeutic General Abdominal Procedures, 19 years and over, with CC Score 0",306.30
+FF52D,"Intermediate Therapeutic General Abdominal Procedures, 18 years and under",198.39
+FF53A,"Minor Therapeutic or Diagnostic, General Abdominal Procedures, 19 years and over",349.10
+FF53B,"Minor Therapeutic or Diagnostic, General Abdominal Procedures, 18 years and under",247.92
+FF60D,Complex Hernia Procedures with CC Score 0,336.13
+FF62D,"Inguinal, Umbilical or Femoral Hernia Procedures, 19 years and over, with CC Score 0",198.01
+GA04D,"Complex, Hepatobiliary or Pancreatic Procedures, with CC Score 0-2",300.72
+GA05D,"Very Major, Hepatobiliary or Pancreatic Procedures, with CC Score 0-2",563.93
+GA06D,"Major, Hepatobiliary or Pancreatic Procedures, with CC Score 0-1",421.38
+GA07E,"Intermediate, Hepatobiliary or Pancreatic Procedures, with CC Score 0",201.97
+GA10N,"Open Cholecystectomy, 19 years and over, with CC Score 0",351.07
+GA13B,"Minor, Hepatobiliary or Pancreatic Procedures, with CC Score 0",318.28
+GA15A,"Liver Transplant, 18 years and over",360.67
+GB05H,Major Therapeutic Endoscopic Retrograde Cholangiopancreatography with CC Score 0-1,313.54
+GB06H,Intermediate Therapeutic Endoscopic Retrograde Cholangiopancreatography with CC Score 0-1,313.58
+GB09F,Complex Therapeutic Endoscopic Retrograde Cholangiopancreatography with CC Score 0-1,301.49
+GB11Z,Diagnostic Endoscopic Retrograde Cholangiopancreatography,184.79
+GB12Z,"Endoscopic Ultrasound Examination, of Hepatobiliary or Pancreatic Duct, with Biopsy or Cytology",404.74
+GB13Z,"Endoscopic Ultrasound Examination, of Hepatobiliary or Pancreatic Duct",189.74
+HC64C,Intermediate Extradural Spinal Procedures with CC Score 0-1,259.41
+HC65Z,Minor Extradural Spinal Procedures,230.38
+HC70B,Complex Intradural Spinal Procedures with CC Score 0-1,366.23
+HC71Z,Major Intradural Spinal Procedures,393.52
+HC72A,"Diagnostic Spinal Puncture, 19 years and over",479.10
+HC72B,"Diagnostic Spinal Puncture, between 6 and 18 years",306.16
+HC72C,"Diagnostic Spinal Puncture, 5 years and under",965.94
+HN12F,Very Major Hip Procedures for Non-Trauma with CC Score 0-1,204.40
+HN13F,"Major Hip Procedures for Non-Trauma, 19 years and over, with CC Score 0",303.61
+HN13H,"Major Hip Procedures for Non-Trauma, 18 years and under, with CC Score 0",529.12
+HN14E,"Intermediate Hip Procedures for Non-Trauma, 19 years and over, with CC Score 0",175.45
+HN14G,"Intermediate Hip Procedures for Non-Trauma, between 6 and 18 years, with CC Score 0",263.22
+HN14H,"Intermediate Hip Procedures for Non-Trauma, 5 years and under",352.04
+HN15A,"Minor Hip Procedures for Non-Trauma, 19 years and over",125.51
+HN15B,"Minor Hip Procedures for Non-Trauma, 18 years and under",136.44
+HN16A,"Minimal Hip Procedures, 19 years and over",244.23
+HN16B,"Minimal Hip Procedures, between 6 and 18 years",225.91
+HN16C,"Minimal Hip Procedures, 5 years and under",232.44
+HN23C,"Major Knee Procedures for Non-Trauma, 19 years and over, with CC Score 0-1",264.13
+HN24C,"Intermediate Knee Procedures for Non-Trauma, 19 years and over, with CC Score 0-1",234.44
+HN24E,"Intermediate Knee Procedures for Non-Trauma, between 6 and 18 years, with CC Score 0",264.94
+HN24F,"Intermediate Knee Procedures for Non-Trauma, 5 years and under",394.09
+HN25A,"Minor Knee Procedures for Non-Trauma, 19 years and over",118.56
+HN25B,"Minor Knee Procedures for Non-Trauma, 18 years and under",121.59
+HN26A,"Minimal Knee Procedures, 19 years and over",223.84
+HN26B,"Minimal Knee Procedures, between 6 and 18 years",233.09
+HN26C,"Minimal Knee Procedures, 5 years and under",217.18
+HN32C,Very Major Foot Procedures for Non-Trauma with CC Score 0-1,485.50
+HN33C,"Major Foot Procedures for Non-Trauma, 19 years and over, with CC Score 0-1",419.96
+HN33D,"Major Foot Procedures for Non-Trauma, 18 years and under",423.18
+HN34C,"Intermediate Foot Procedures for Non-Trauma, 19 years and over, with CC Score 0-1",219.60
+HN34D,"Intermediate Foot Procedures for Non-Trauma, 18 years and under",310.98
+HN35A,"Minor Foot Procedures for Non-Trauma, 19 years and over",241.43
+HN35B,"Minor Foot Procedures for Non-Trauma, 18 years and under",253.41
+HN36Z,Minimal Foot Procedures,231.22
+HN42B,Very Major Hand Procedures for Non-Trauma with CC Score 0-1,138.07
+HN43B,"Major Hand Procedures for Non-Trauma, 19 years and over, with CC Score 0-1",238.94
+HN43C,"Major Hand Procedures for Non-Trauma, 18 years and under",148.55
+HN44B,"Intermediate Hand Procedures for Non-Trauma, 19 years and over, with CC Score 0-1",173.39
+HN44C,"Intermediate Hand Procedures for Non-Trauma, between 6 and 18 years",195.53
+HN44D,"Intermediate Hand Procedures for Non-Trauma, 5 years and under",196.71
+HN45A,"Minor Hand Procedures for Non-Trauma, 19 years and over",140.35
+HN45B,"Minor Hand Procedures for Non-Trauma, between 6 and 18 years",125.46
+HN45C,"Minor Hand Procedures for Non-Trauma, 5 years and under",113.30
+HN46Z,Minimal Hand Procedures,194.24
+HN52C,Very Major Shoulder Procedures for Non-Trauma with CC Score 0-1,438.56
+HN53C,Major Shoulder Procedures for Non-Trauma with CC Score 0-1,489.02
+HN54C,"Intermediate Shoulder Procedures for Non-Trauma, 19 years and over, with CC Score 0-1",208.98
+HN54D,"Intermediate Shoulder Procedures for Non-Trauma, 18 years and under",215.90
+HN55Z,Minor Shoulder Procedures for Non-Trauma,105.54
+HN56Z,Minimal Shoulder Procedures,216.54
+HN62B,Very Major Elbow Procedures for Non-Trauma with CC Score 0-1,237.66
+HN63B,Major Elbow Procedures for Non-Trauma with CC Score 0-1,188.54
+HN64B,"Intermediate Elbow Procedures for Non-Trauma, 19 years and over, with CC Score 0-1",151.73
+HN64C,"Intermediate Elbow Procedures for Non-Trauma, between 6 and 18 years",253.53
+HN64D,"Intermediate Elbow Procedures for Non-Trauma, 5 years and under",258.82
+HN65Z,Minor Elbow Procedures for Non-Trauma,116.64
+HN66Z,Minimal Elbow Procedures,225.66
+HN81E,"Complex, Hip or Knee Procedures for Non-Trauma, with CC Score 0-1",323.17
+HN86B,"Complex, Foot, Hand, Shoulder or Elbow Procedures for Non-Trauma, with CC Score 0-1",203.80
+HN93Z,"Other Muscle, Tendon, Fascia or Ligament Procedures",222.56
+IVF01,Human menopausal gonadotrophins,33.86
+IVF02,Follicle stimulating hormone,15.04
+IVF04,GnRH agonists,51.30
+IVF06,Progesterone (pessaries and injections),91.15
+IVF07,Oestradiol valerate tablets,39.74
+IVF08,Other drug not listed,48.84
+JA20F,Unilateral Major Breast Procedures with CC Score 0-2,332.94
+JA21B,Bilateral Major Breast Procedures with CC Score 0,278.86
+JA42Z,Bilateral Intermediate Breast Procedures,832.51
+JA43B,Unilateral Intermediate Breast Procedures with CC Score 0-2,384.78
+JA44Z,Bilateral Minor Breast Procedures,556.24
+JA45Z,Unilateral Minor Breast Procedures,448.68
+JB70A,"Debridement of Burn, 16 years and over",216.94
+JB70B,"Debridement of Burn, 15 years and under",269.52
+JB71A,"Cleansing and Dressing of Burn, 16 years and over",213.85
+JB71B,"Cleansing and Dressing of Burn, 15 years and under",173.59
+JC40Z,Very Major Skin Procedures,7413.15
+JC41Z,Major Skin Procedures,1667.88
+JC42C,"Intermediate Skin Procedures, 19 years and over",269.55
+JC42D,"Intermediate Skin Procedures, 18 years and under",205.28
+JC43C,"Minor Skin Procedures, 19 years and over",237.48
+JC43D,"Minor Skin Procedures, 18 years and under",294.93
+JC44Z,Complex Patch Tests,189.45
+JC45A,"Standard Patch Tests, 13 years and over",205.68
+JC45B,"Standard Patch Tests, 12 years and under",343.36
+JC46Z,Photodynamic Therapy,257.40
+JC47Z,Phototherapy or Photochemotherapy,154.66
+KA04B,Adrenal Procedures with CC Score 0-1,311.42
+KA09E,Thyroid Procedures with CC Score 0-1,190.57
+KB04Z,Continuous Subcutaneous Insulin Infusion,631.54
+LA05Z,Renal Replacement Peritoneal Dialysis Associated Procedures,404.72
+LA10Z,Live Kidney Donor Screening,536.80
+LA11Z,Kidney Pre-Transplantation Workup of Live Donor,597.24
+LA12A,"Kidney Pre-Transplantation Workup of Recipient, 19 years and over",487.54
+LA12B,"Kidney Pre-Transplantation Workup of Recipient, 18 years and under",561.46
+LA13A,"Examination for Post-Transplantation of Kidney of Recipient, 19 years and over",346.78
+LA13B,"Examination for Post-Transplantation of Kidney of Recipient, 18 years and under",454.27
+LA14Z,Examination for Post-Transplantation of Kidney of Live Donor,347.61
+LB09C,"Intermediate Endoscopic Ureter Procedures, 18 years and under",208.51
+LB09D,"Intermediate Endoscopic Ureter Procedures, 19 years and over",283.80
+LB10D,"Major Open Bladder Procedures or Reconstruction, 19 years and over, with CC Score 0-1",176.43
+LB12Z,Intermediate Open Bladder Procedures,226.29
+LB13F,Major Endoscopic Bladder Procedures with CC Score 0-1,302.06
+LB14Z,Intermediate Endoscopic Bladder Procedures,335.52
+LB15D,"Minor Bladder Procedures, 18 years and under",290.90
+LB15E,"Minor Bladder Procedures, 19 years and over",207.00
+LB17Z,Introduction of Therapeutic Substance into Bladder,245.74
+LB18Z,Attention to Suprapubic Bladder Catheter,208.68
+LB21B,"Complex Open, Prostate or Bladder Neck Procedures, with CC Score 0-1",198.12
+LB26B,"Intermediate Endoscopic, Prostate or Bladder Neck Procedures, with CC Score 0-1",379.31
+LB29A,"Major Urethra Procedures, 19 years and over",357.80
+LB33Z,Vasectomy Procedures,1486.26
+LB36Z,Extracorporeal Lithotripsy,341.30
+LB39D,"Cystectomy with Urinary Diversion and Reconstruction, with CC Score 0-2",344.55
+LB42A,"Dynamic Studies of Urinary Tract, 19 years and over",246.67
+LB42D,"Dynamic Studies of Urinary Tract, 18 years and under",341.55
+LB43Z,Treatment of Erectile Dysfunction,250.33
+LB47Z,Major Open Penis Procedures,390.93
+LB52B,"Major Open, Scrotum, Testis or Vas Deferens Procedures, with CC Score 0-1",410.92
+LB54A,"Minor, Scrotum, Testis or Vas Deferens Procedures, 19 years and over",656.08
+LB54C,"Minor, Scrotum, Testis or Vas Deferens Procedures, between 2 and 18 years",1043.97
+LB55A,"Minor or Intermediate, Urethra Procedures, 19 years and over",242.89
+LB55B,"Minor or Intermediate, Urethra Procedures, 18 years and under",201.21
+LB56A,"Minor Penis Procedures, 19 years and over",301.40
+LB56C,"Minor Penis Procedures, between 2 and 18 years",260.78
+LB56D,"Minor Penis Procedures, 1 year and under",275.50
+LB59Z,"Major, Open or Laparoscopic, Bladder Neck Procedures",242.97
+LB60F,"Complex, Open or Laparoscopic, Kidney or Ureter Procedures, with CC Score 0-1",275.69
+LB61G,"Major, Open or Percutaneous, Kidney or Ureter Procedures, 19 years and over, with CC Score 0-1",260.51
+LB64E,"Complex Endoscopic, Kidney or Ureter Procedures, 19 years and over, with CC Score 0-1",136.10
+LB65E,"Major Endoscopic, Kidney or Ureter Procedures, 19 years and over, with CC Score 0-2",230.64
+LB66Z,"Complex or Major, Endoscopic, Kidney or Ureter Procedures, 18 years and under",495.29
+LB68B,Complex Endoscopic Bladder Procedures with CC Score 0-2,212.49
+LB70D,"Complex Endoscopic, Prostate or Bladder Neck Procedures, with CC Score 0-1",66.77
+LB72A,"Diagnostic Flexible Cystoscopy, 19 years and over",254.67
+LB72B,"Diagnostic Flexible Cystoscopy, 18 years and under",256.11
+LB76Z,Transrectal Ultrasound Guided Biopsy of Prostate,613.54
+LB77Z,Transperineal Template Biopsy of Prostate,599.85
+LB78Z,Minor Prostate or Bladder Neck Procedures,207.95
+MA02C,"Very Major Open, Upper or Lower Genital Tract Procedures, with CC Score 0-1",295.36
+MA03D,Major Open Lower Genital Tract Procedures with CC Score 0-2,269.60
+MA04D,Intermediate Open Lower Genital Tract Procedures with CC Score 0-2,434.51
+MA07G,Major Open Upper Genital Tract Procedures with CC Score 0-2,315.30
+MA09B,"Intermediate, Laparoscopic or Endoscopic, Upper Genital Tract Procedures, with CC Score 0-1",448.29
+MA10Z,"Minor, Laparoscopic or Endoscopic, Upper Genital Tract Procedures",349.14
+MA11Z,Intermediate Open Upper Genital Tract Procedures,388.45
+MA12Z,Resection or Ablation Procedures for Intrauterine Lesions,423.63
+MA22Z,Minor Lower Genital Tract Procedures,353.19
+MA23Z,Minimal Lower Genital Tract Procedures,274.38
+MA24Z,Minor Upper Genital Tract Procedures,322.96
+MA25Z,Minimal Upper Genital Tract Procedures,333.04
+MA30Z,Intermediate Female Pelvic Peritoneum Adhesion Procedures,347.29
+MA31Z,Diagnostic Hysteroscopy,326.47
+MA32Z,Diagnostic Hysteroscopy with Biopsy,408.02
+MA33Z,Diagnostic Hysteroscopy with Biopsy and Implantation of Intrauterine Device,399.95
+MA34Z,Diagnostic Hysteroscopy with Implantation of Intrauterine Device,344.07
+MA35Z,Implantation of Intrauterine Device,254.04
+MA36Z,Transvaginal Ultrasound,239.17
+MA37Z,Transvaginal Ultrasound with Biopsy,379.81
+MA38Z,Diagnostic Colposcopy,276.92
+MA39Z,Diagnostic Colposcopy with Biopsy,391.78
+MA40Z,Therapeutic Colposcopy,404.98
+MA41Z,Transvaginal Ultrasound with Biopsy and Implantation of Intrauterine Device,395.11
+MA42Z,Transvaginal Ultrasound with Implantation of Intrauterine Device,338.53
+MA43Z,Transvaginal Ultrasound with Salpingography,395.44
+MA44Z,Salpingography,314.96
+MA45Z,Diagnostic Hysteroscopy with Transvaginal Ultrasound,296.53
+MA46Z,"Diagnostic Hysteroscopy with Transvaginal Ultrasound, with Biopsy",363.12
+MA47Z,Diagnostic Hysteroscopy with Transvaginal Ultrasound and Implantation of Intrauterine Device,408.07
+MA48Z,Medical Treatment of Ectopic Pregnancy,171.43
+MA52A,"Surgical, Abortion or Miscarriage Care, under 14 weeks Gestation, with Insertion of Long-Acting Contraceptive",302.13
+MA52B,"Surgical, Abortion or Miscarriage Care, under 14 weeks Gestation, without Insertion of Long-Acting Contraceptive",307.74
+MA53Z,"Medical, Abortion or Miscarriage Care, over 20 weeks Gestation",321.66
+MA55B,"Medical, Abortion or Miscarriage Care, from 9 to under 14 weeks Gestation, without Insertion of Long-Acting Contraceptive",427.45
+MA56A,"Medical, Abortion or Miscarriage Care, under 9 weeks Gestation, with Insertion of Long-Acting Contraceptive",351.79
+MA56B,"Medical, Abortion or Miscarriage Care, under 9 weeks Gestation, without Insertion of Long-Acting Contraceptive",273.08
+MC07Z,Intrauterine insemination with superovulation,954.25
+MC08Z,"Intrauterine insemination with superovulation, with donor",1152.71
+MC09Z,Intrauterine insemination without superovulation,827.37
+MC10Z,"Intrauterine insemination without superovulation, with donor",1066.51
+MC11Z,Implantation of embryo,1027.10
+MC12Z,Oocyte recovery,2793.13
+MC14Z,Oocyte recovery with intracytoplasmic sperm injection,6884.57
+MC20Z,Surgical extraction of sperm,483.12
+MC21Z,Collection of sperm,179.95
+N01A,"Community Midwife, Ante Natal Visit",122.08
+N01P,"Community Midwife, Post Natal Visit",162.43
+NZ16Z,Ante-Natal Routine Observation,784.38
+NZ21Z,Ante-Natal Standard Routine Ultrasound Scan,183.75
+NZ22Z,Ante-Natal Specialised Non-Routine Ultrasound Scan,205.97
+NZ24B,"Ante-Natal Therapeutic Procedures, including Induction, with CC Score 0-1",196.21
+NZ25Z,Labour without Specified Delivery,3661.83
+NZ27Z,Post-Natal Therapeutic Procedures,238.09
+NZ30A,Normal Delivery with CC Score 2+,5177.69
+NZ30B,Normal Delivery with CC Score 1,3547.00
+NZ30C,Normal Delivery with CC Score 0,3003.95
+NZ31A,"Normal Delivery, with Epidural or Induction, with CC Score 2+",1896.41
+NZ31B,"Normal Delivery, with Epidural or Induction, with CC Score 1",2644.66
+NZ31C,"Normal Delivery, with Epidural or Induction, with CC Score 0",2025.84
+NZ50C,Planned Caesarean Section with CC Score 0-1,279.80
+NZ51C,Emergency Caesarean Section with CC Score 0-1,408.09
+NZ71Z,Specialised Fetal Therapeutic Procedures,482.62
+NZ72Z,Specialised Fetal Invasive Diagnostic Procedures,407.15
+SA16Z,"Plasma Exchanges, 20 or more",130.72
+SA26A,"Peripheral Blood Stem Cell Transplant, Autologous, 19 years and over",517.59
+SA33Z,Diagnostic Bone Marrow Extraction,499.35
+SA40Z,"Peripheral Blood Stem Cell Transplant, Allogeneic (Donor Type Not Specified)",1394.34
+SA41Z,Automated Red Cell Exchange,95.41
+SA44A,"Single Plasma Exchange or Other Intravenous Blood Transfusion, 19 years and over",411.13
+SA44B,"Single Plasma Exchange or Other Intravenous Blood Transfusion, 18 years and under",1738.75
+SA45A,"Injection of Rh Immune Globulin or Other Blood Transfusion, 19 years and over",354.65
+SA45B,"Injection of Rh Immune Globulin or Other Blood Transfusion, 18 years and under",594.24
+SB11Z,Deliver Exclusively Oral Chemotherapy,269.91
+SB12Z,Deliver Simple Parenteral Chemotherapy at First Attendance,262.08
+SB13Z,Deliver more Complex Parenteral Chemotherapy at First Attendance,309.22
+SB14Z,"Deliver Complex Chemotherapy, including Prolonged Infusional Treatment, at First Attendance",397.19
+SB15Z,Deliver Subsequent Elements of a Chemotherapy Cycle,318.93
+SB17Z,Deliver Chemotherapy for Regimens not on the National List,390.21
+SB97Z,Same Day Chemotherapy Admission or Attendance,231.28
+SC21Z,Deliver a Fraction of Treatment on a Superficial or Orthovoltage Machine,219.02
+SC22Z,Deliver a Fraction of Treatment on a Megavoltage Machine,301.07
+SC23Z,Deliver a Fraction of Complex Treatment on a Megavoltage Machine,322.90
+SC24Z,Deliver a Fraction of Radiotherapy on a Megavoltage Machine using General Anaesthetic,516.37
+SC25Z,Deliver a Fraction of Total Body Irradiation,512.09
+SC26Z,Deliver a Fraction of Intracavitary Radiotherapy without General Anaesthetic,1186.30
+SC27Z,Deliver a Fraction of Intracavitary Radiotherapy with General Anaesthetic,1213.08
+SC28Z,Deliver a Fraction of Interstitial Radiotherapy,2453.24
+SC29Z,Other Radiotherapy Treatment,543.60
+SC30Z,Deliver a Fraction of Intraluminal Brachytherapy,1712.41
+SC31Z,Deliver a Fraction of Adaptive Radiotherapy on a Megavoltage Machine,315.91
+SC40Z,Preparation for Intensity Modulated Radiation Therapy,902.98
+SC41Z,"Preparation for Intensity Modulated Radiation Therapy, with Technical Support",1508.62
+SC42Z,Preparation for Total Body Irradiation,1075.96
+SC43Z,"Preparation for Total Body Irradiation, with Technical Support",1825.09
+SC44Z,Preparation for Hemi-Body Irradiation,485.28
+SC45Z,Preparation for Simple Radiotherapy with Imaging and Dosimetry,484.54
+SC46Z,"Preparation for Simple Radiotherapy with Imaging and Dosimetry, with Technical Support",772.10
+SC47Z,Preparation for Simple Radiotherapy with Imaging and Simple Calculation,500.39
+SC48Z,"Preparation for Simple Radiotherapy with Imaging and Simple Calculation, with Technical Support",615.52
+SC49Z,Preparation for Superficial Radiotherapy with Simple Calculation,577.11
+SC50Z,"Preparation for Superficial Radiotherapy with Simple Calculation, with Technical Support",553.95
+SC51Z,Preparation for Complex Conformal Radiotherapy,845.78
+SC52Z,"Preparation for Complex Conformal Radiotherapy, with Technical Support",1195.44
+SC53Z,Preparation for Intraluminal Brachytherapy,1391.65
+SC54Z,Preparation for Intracavitary Brachytherapy,1875.55
+SC55Z,Preparation for Interstitial Brachytherapy,1368.17
+SC56Z,Other External Beam Radiotherapy Preparation,760.40
+SC57Z,Other Brachytherapy Preparation,328.76
+WH54B,Procedures on the Lymphatic System with CC Score 0,298.54
+WJ04Z,Genito-urinary medicine (GUM) infections,87.34
+WJ10A,HIV disease with multiple interventions,305.49
+WJ10F,"HIV disease without Interventions, with CC score 0–1",1442.08
+YA03C,"Percutaneous Transluminal Embolisation of, Single Small or Medium, Intracranial or Extracranial Aneurysm, with CC Score 0-3",3656.40
+YA10Z,"Percutaneous Transluminal Angioplasty, including Stenting, of Intracranial or Extracranial Blood Vessel",1283.40
+YA11Z,"Percutaneous Transluminal Arteriography, of Intracranial or Extracranial Blood Vessel",884.98
+YA13Z,"Percutaneous Transluminal, Embolectomy or Thrombolysis, of Intracranial or Extracranial Blood Vessel",4134.80
+YC01Z,"Percutaneous Core Needle Biopsy of Lesion of, Head or Neck",412.33
+YC02Z,"Percutaneous Fine Needle Aspiration Biopsy of Lesion of, Head or Neck",205.00
+YC10Z,"Percutaneous Therapeutic, Head or Neck Procedures",272.06
+YD02Z,"Percutaneous Biopsy of Lesion of, Pleura or Chest Wall",316.54
+YD03Z,"Percutaneous Biopsy of Lesion of, Lung or Mediastinum",503.75
+YD04Z,Percutaneous Drainage of Pleural Cavity,510.87
+YD05Z,Percutaneous Aspiration of Pleural Cavity,413.84
+YF01A,"Radiological Insertion of Gastrostomy Tube, 19 years and over",425.60
+YF02Z,"Radiological Insertion of, Gastrojejunostomy or Jejunostomy Tube",99.13
+YF03B,"Multiple Percutaneous Drainage of Abdominal Lesion Procedures, with CC Score 0-4",95.93
+YF04C,"Single Percutaneous Drainage of Abdominal Lesion Procedure, with CC Score 0-1",178.12
+YF05Z,Percutaneous Biopsy of Lesion of Abdominal Cavity,458.75
+YG01B,"Percutaneous Ablation of Lesion of, Liver or Pancreas, with CC Score 0-1",81.26
+YG04B,"Percutaneous Insertion of Single Metal Stent, into Hepatic or Bile Duct, with CC Score 0-3",86.82
+YG05B,"Percutaneous Insertion of Single Other Stent, into Hepatic or Bile Duct, with CC Score 0-3",538.91
+YG06Z,Percutaneous Drainage of Hepatobiliary System,151.71
+YG07B,"Other Percutaneous Therapeutic, Hepatobiliary or Pancreatic Procedures, with CC Score 0-2",1584.50
+YG10Z,Percutaneous Transvascular Biopsy of Lesion of Liver,341.17
+YG11A,"Percutaneous Punch Biopsy of Lesion of Liver, 19 years and over",215.18
+YG11B,"Percutaneous Punch Biopsy of Lesion of Liver, 18 years and under",116.99
+YG12Z,"Other Percutaneous Diagnostic, Hepatobiliary or Pancreatic Procedures",605.54
+YH03Z,Standard Percutaneous Vertebroplasty,1605.13
+YH30A,"Percutaneous Aspiration of Joint, 19 years and over",260.02
+YH30B,"Percutaneous Aspiration of Joint, 18 years and under",297.77
+YH31A,"Percutaneous Biopsy of Lesion of Bone, 19 years and over",516.05
+YH31B,"Percutaneous Biopsy of Lesion of Bone, 18 years and under",675.07
+YH32A,"Percutaneous Biopsy of, Lesion of Muscle or Connective Tissue, 19 years and over",385.13
+YH32B,"Percutaneous Biopsy of, Lesion of Muscle or Connective Tissue, 18 years and under",369.06
+YJ03Z,Biopsy of Lesion of Breast and Associated Lymph Nodes,600.03
+YJ04Z,Core Needle Biopsy of Axillary Lymph Nodes,474.55
+YJ08Z,Fine Needle Aspiration of Axillary Lymph Nodes,377.90
+YJ09Z,Vacuum Assisted Biopsy or Excision of Lesion of Breast,573.61
+YJ11Z,Drainage of Lesion of Breast or Associated Lymph Nodes,298.82
+YJ12Z,"Insertion of Marker, into Breast or Axillary Lymph Node",385.61
+YJ13Z,Ultrasound Guided Core Needle Biopsy of Lesion of Breast,550.13
+YJ14Z,Stereotactic Core Needle Biopsy of Lesion of Breast,447.43
+YJ15Z,Fine Needle Aspiration of Lesion of Breast,368.27
+YL02Z,Standard Percutaneous Ablation of Lesion of Kidney,519.85
+YL10Z,"Bilateral or Multiple, Percutaneous Insertion of, Ureteric Stent or Nephrostomy",500.36
+YL11Z,"Unilateral, Percutaneous Insertion of, Ureteric Stent or Nephrostomy",457.16
+YL12Z,"Percutaneous, Attention to or Removal of, Ureteric Stent or Nephrostomy",272.93
+YL20A,"Percutaneous Needle Biopsy of Lesion of Kidney, 19 years and over",236.77
+YL21Z,Other Percutaneous Urinary Tract Procedures,100.65
+YL30Z,Percutaneous Ablation of Lesion of Prostate,209.06
+YQ05B,"Single Open Procedure, on Aorta or Abdominal Blood Vessel, with CC Score 0-3",422.10
+YQ07B,"Open Repair of Suprarenal Aortic Aneurysm, with CC Score 0-6",153.65
+YQ09C,Standard Open Repair of Abdominal Aortic Aneurysm with CC Score 0-3,189.29
+YQ12D,Single Open Procedure on Blood Vessel of Lower Limb with CC Score 0-3,187.00
+YQ15Z,Open Treatment of Recurrent Unilateral Varicose Veins,151.32
+YQ16Z,Open Treatment of Primary Unilateral Varicose Veins,168.98
+YQ26C,"Single, Amputation Stump or Partial Foot Amputation Procedure, for Diabetes or Arterial Disease, with CC Score 0-4",257.90
+YQ31B,Single Open Procedure on Carotid Artery with CC Score 0-4,276.88
+YQ40Z,Sympathectomy,536.17
+YQ41B,"Open Operations, on Other or Unspecified Blood Vessels, with CC Score 0-1",485.70
+YQ42Z,"Open Arteriovenous Fistula, Graft or Shunt Procedures",225.68
+YQ43Z,Biopsy of Temporal Artery,575.25
+YR11D,Percutaneous Transluminal Angioplasty of Single Blood Vessel with CC Score 0-2,129.46
+YR15C,"Percutaneous Transluminal Angioplasty with Insertion of Single Stent into Peripheral Blood Vessel, with CC Score 0-2",367.88
+YR22C,Inferior Vena Cava Filter Procedures with CC Score 0-2,134.22
+YR23B,"Percutaneous Transluminal, Embolectomy or Thrombolysis, of Blood Vessel, with CC Score 0-4",685.52
+YR24D,Percutaneous Transluminal Other Procedures on Blood Vessel with CC Score 0-3,182.15
+YR25Z,Arteriography,356.32
+YR26Z,Venography,1453.74
+YR30Z,"Percutaneous Transluminal, Laser or Radiofrequency Ablation, of Bilateral Varicose Veins",299.28
+YR31Z,"Percutaneous Transluminal, Laser or Radiofrequency Ablation, of Unilateral Varicose Veins",379.12
+YR32Z,Sclerotherapy of Bilateral Varicose Veins,149.32
+YR33Z,Sclerotherapy of Unilateral Varicose Veins,357.38
+YR40A,"Insertion of Non-Tunnelled Central Venous Catheter, 19 years and over",351.97
+YR40C,"Insertion of Non-Tunnelled Central Venous Catheter, between 6 and 18 years",704.23
+YR40D,"Insertion of Non-Tunnelled Central Venous Catheter, 5 years and under",649.69
+YR41A,"Insertion of Tunnelled Central Venous Catheter, 19 years and over",342.34
+YR41B,"Insertion of Tunnelled Central Venous Catheter, 18 years and under",539.06
+YR42A,"Peripheral Insertion of Central Venous Catheter, 19 years and over",479.29
+YR42C,"Peripheral Insertion of Central Venous Catheter, between 6 and 18 years",451.72
+YR43A,"Attention to Central Venous Catheter, 19 years and over",206.06
+YR43C,"Attention to Central Venous Catheter, between 6 and 18 years",418.64
+YR43D,"Attention to Central Venous Catheter, 5 years and under",369.42
+YR44A,"Removal of Central Venous Catheter, 19 years and over",205.42
+YR44C,"Removal of Central Venous Catheter, between 6 and 18 years",390.25
+YR44D,"Removal of Central Venous Catheter, 5 years and under",290.77
+YR45A,"Insertion of Subcutaneous Port, 19 years and over",291.65
+YR45B,"Insertion of Subcutaneous Port, 18 years and under",196.30
+YR46Z,Attention to Subcutaneous Port,194.70
+YR47Z,Removal of Subcutaneous Port,98.07
+YR48Z,"Attention to Arteriovenous Fistula, Graft or Shunt",99.11
+YR51Z,"Percutaneous Transluminal Embolisation of, Single Large or Two Other, Peripheral Aneurysms",482.87
+YR53Z,Percutaneous Transluminal Embolisation of Peripheral Arteriovenous Malformation,235.30
+YR54C,Percutaneous Transluminal Embolisation of Peripheral Blood Vessel with CC Score 0-2,285.83
+YR55Z,Uterine Artery Embolisation,208.27
+YR56Z,Varicocele Embolisation,94.52
+YR57Z,"Percutaneous, Chemoembolisation or Radioembolisation, of Lesion of Liver",4400.95
+YR58Z,Injection Sclerotherapy of Peripheral Low Flow Vascular Malformation,208.82
+YR67B,"Standard Endovascular Repair of Abdominal Aortic Aneurysm, with CC Score 0-5",177.08
