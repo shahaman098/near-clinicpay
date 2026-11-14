@@ -6,12 +6,17 @@
 //     --line "Consultation=20" --line "Blood panel=30" \
 //     --share "Patient co-pay:patient.testnet=10" --share "Insurer:insurer.testnet=40"
 //   ... node ops/clinic.mjs cancel --contract clinicpay.testnet --id INV-8
+//   ... node ops/clinic.mjs register --contract clinicpay.testnet --token usdc.testnet
+//
+// `register` pays the token's storage_deposit for ClinicPay and for the clinic, which a
+// token invoice needs before anyone can pay it. Accounts already registered are skipped,
+// so running it twice costs nothing.
 //
 // Amounts use the same syntax as `clinicpay args`. The key is read from the
 // environment only and never printed.
 import { parseArgs } from "node:util";
 import { buildCreateArgs } from "../cli/lib.mjs";
-import { accountFromEnv, signAndSend } from "../relayer/near.mjs";
+import { accountFromEnv, signAndSend, viewCall } from "../relayer/near.mjs";
 
 const TGAS = 10n ** 12n;
 const [cmd, ...rest] = process.argv.slice(2);
@@ -26,9 +31,30 @@ const { values: v } = parseArgs({
 });
 
 try {
-  if (!["create", "cancel"].includes(cmd)) throw new Error("usage: clinic.mjs create|cancel --contract ID --id INVOICE ...");
-  if (!v.contract || !v.id) throw new Error("--contract and --id are required");
+  if (!["create", "cancel", "register"].includes(cmd)) {
+    throw new Error("usage: clinic.mjs create|cancel --contract ID --id INVOICE ... | register --contract ID --token TOKEN");
+  }
+  if (!v.contract) throw new Error("--contract is required");
   const clinic = accountFromEnv("CLINIC");
+  if (cmd === "register") {
+    if (!v.token) throw new Error("register needs --token");
+    const bounds = await viewCall(v.rpc, v.token, "storage_balance_bounds", {});
+    const min = BigInt(bounds.min);
+    const results = [];
+    for (const who of [v.contract, clinic.accountId]) {
+      const have = await viewCall(v.rpc, v.token, "storage_balance_of", { account_id: who });
+      if (have !== null) { results.push({ account: who, registered: "already" }); continue; }
+      const r = await signAndSend(v.rpc, clinic, v.token, [{
+        type: "FunctionCall", method_name: "storage_deposit", args: { account_id: who, registration_only: true },
+        gas: 30n * TGAS, deposit: min,
+      }]);
+      results.push({ account: who, registered: r.failure ? "failed" : "now", tx_hash: r.hash, failure: r.failure });
+      if (r.failure) process.exitCode = 1;
+    }
+    console.log(JSON.stringify({ ok: !process.exitCode, token: v.token, deposit_yocto: min.toString(), results }, null, 2));
+    process.exit(process.exitCode ?? 0);
+  }
+  if (!v.id) throw new Error("--id is required");
   let call;
   if (cmd === "create") {
     const dueMs = v.due ? Date.parse(v.due) : null;

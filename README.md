@@ -5,12 +5,12 @@
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
-Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 98 passing (41 unit, 22 sandbox e2e on a real local NEAR node, 35 CLI/relayer/benchmark).
+Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 99 passing (41 unit, 23 sandbox e2e on a real local NEAR node, 35 CLI/relayer/benchmark).
 
 Fastest verification:
 
 ```sh
-npm test && (cd contract && cargo test)   # 98 tests, no keys, no network funds
+npm test && (cd contract && cargo test)   # 99 tests, no keys, no network funds
 cd contract && cargo run --example demo   # NEAR + stablecoin invoices, a rollback, insurer adjudication, a gasless payment
 ```
 
@@ -101,7 +101,7 @@ funds needed: everything below runs on a local sandbox node.
 1. **Run all tests.**
    ```sh
    npm test                      # 35 tests: CLI (mock RPC), Intents client, relayer policy, benchmark
-   cd contract && cargo test     # 41 unit + 4 NEAR + 5 stablecoin + 5 gasless + 1 deploy-tool + 7 Intents sandbox tests
+   cd contract && cargo test     # 41 unit + 4 NEAR + 5 stablecoin + 5 gasless + 2 deploy-tool + 7 Intents sandbox tests
    ```
    You should see `test result: ok. 39 passed`, then (in file order) `ok. 4 passed`,
    `ok. 5 passed`, `ok. 1 passed`, `ok. 5 passed`.
@@ -221,18 +221,23 @@ registered, payments are reverted and refunded (that is the rollback test above)
 
 ```sh
 npm run build:wasm
-# deploy + init in one transaction; the account needs ~4 NEAR for storage
+# deploy + init in one transaction; the 262 KB wasm needs ~2.7 NEAR for storage
 DEPLOY_ACCOUNT_ID=clinicpay-demo.testnet DEPLOY_PRIVATE_KEY=ed25519:... node ops/deploy.mjs
 # the clinic creates (or cancels) an invoice with its own key
 CLINIC_ACCOUNT_ID=clinic-demo.testnet CLINIC_PRIVATE_KEY=ed25519:... node ops/clinic.mjs create \
   --contract clinicpay-demo.testnet --id INV-8 --memo "GP visit" \
   --line "Consultation=2" --line "Blood panel=3" \
   --share "Patient co-pay:patient-demo.testnet=1" --share "Insurer:insurer-demo.testnet=4"
+# for stablecoin invoices: register ClinicPay and the clinic on the token first
+# (pays storage_deposit for whichever is missing; safe to run twice)
+CLINIC_ACCOUNT_ID=clinic-demo.testnet CLINIC_PRIVATE_KEY=ed25519:... node ops/clinic.mjs register \
+  --contract clinicpay-demo.testnet --token usdc.testnet
 ```
 
 Then open `web/clinic.html?contract=clinicpay-demo.testnet&clinic=clinic-demo.testnet`
 (testnet RPC is the default). `tests/sandbox_ops.rs` runs exactly these two tools against
-a local node: deploy and init, create, cancel, an upgrade with `--no-init` that keeps
+a local node: deploy and init, create, cancel, token registration followed by a
+paid token invoice, an upgrade with `--no-init` that keeps
 the state, and a clinic error that comes back with the contract's message. Keys come
 from the environment only, and the test checks that no key is printed.
 
