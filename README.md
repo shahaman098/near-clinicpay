@@ -5,6 +5,15 @@
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
+Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 44 passing (24 unit, 8 sandbox e2e, 12 CLI/benchmark).
+
+Fastest verification:
+
+```sh
+npm test && (cd contract && cargo test)   # 44 tests, no keys, no network funds
+cd contract && cargo run --example demo   # settles two invoices, then shows a refund
+```
+
 ## The problem
 
 A private clinic bill is rarely paid by one person. The insurer owes one slice, the
