@@ -4,7 +4,7 @@
 import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import {
-  DEFAULT_RPC, buildCreateArgs, describe, fromUnits, invoicesToCsv, listAll, payCommand, tokenMetas,
+  DEFAULT_RPC, buildCreateArgs, claimResponse, describe, fromUnits, invoicesToCsv, listAll, payCommand, tokenMetas,
   unitsOf, view,
 } from "./lib.mjs";
 
@@ -18,7 +18,9 @@ const HELP = `clinicpay <command> [options]
           Show an invoice, its status, and the near CLI command that pays each open
           share on that network (default: testnet).
   export  --contract ACCOUNT --clinic ACCOUNT [--out FILE.csv] [--rpc URL]
-          One CSV row per share for every invoice of the clinic.
+          One CSV row per share for every invoice of the clinic (835-style, not X12 835).
+  export-fhir --contract ACCOUNT --id ID [--out FILE.json] [--rpc URL]
+          FHIR R4 ClaimResponse for one invoice, with submitted/benefit adjudication.
 
 Default RPC: ${DEFAULT_RPC} (testnet).`;
 
@@ -65,6 +67,17 @@ async function main(argv) {
         console.log(`\nPay share #${i}:\n  ${payCommand(v.contract, inv.id, i, s.amount, v.network, inv.token ?? null)}`);
       }
     });
+    return;
+  }
+  if (cmd === "export-fhir") {
+    if (!v.id) throw new Error("--id is required");
+    const inv = await view(v.rpc, v.contract, "get_invoice", { invoice_id: v.id });
+    if (!inv) throw new Error(`no invoice "${v.id}" on ${v.contract}`);
+    const status = await view(v.rpc, v.contract, "get_status", { invoice_id: v.id });
+    const metas = await tokenMetas(v.rpc, [inv]);
+    const body = JSON.stringify(claimResponse(inv, status, unitsOf(inv, (t) => metas.get(t))), null, 2);
+    if (v.out) { writeFileSync(v.out, body + "\n"); console.error(`wrote ${v.id} to ${v.out}`); }
+    else console.log(body);
     return;
   }
   if (cmd === "export") {

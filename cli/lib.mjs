@@ -95,6 +95,7 @@ export const CSV_HEADER = [
   "share_label", "named_payer", "share_amount", "share_state", "paid_by", "paid_at_utc",
   "refunded_at_utc", "invoice_due_utc", "invoice_status",
   "billed_amount", "approved_amount", "adjustment_reason", "adjusted_to_share", "adjudicated_at_utc",
+  "adj_group", "adj_carc", "adj_retired",
 ];
 
 /** Units for an invoice: NEAR, or a token's decimals and symbol (from `metaOf`). */
@@ -117,9 +118,19 @@ export async function tokenMetas(rpc, invoices) {
   return out;
 }
 
+/** Parse an X12 group/CARC prefix from an adjudication reason: "CO-45: fee schedule".
+ *  Groups: CO, OA, PI, PR (CR is retired in 005010 and is flagged). */
+export function parseAdjustment(reason = "") {
+  const m = /^(CO|OA|PI|PR|CR)[- ](\d+)\b[\s:,-]*(.*)$/i.exec(String(reason).trim());
+  if (!m) return { group: "", carc: "", detail: String(reason), retired: false };
+  const group = m[1].toUpperCase();
+  return { group, carc: m[2], detail: m[3] || "", retired: group === "CR" };
+}
+
 function adjCells(a, d) {
-  if (!a) return ["", "", "", "", ""];
-  return [fromUnits(a.original, d), fromUnits(a.approved, d), a.reason, a.moved_to ?? "", iso(a.at_ms)];
+  if (!a) return ["", "", "", "", "", "", "", ""];
+  const p = parseAdjustment(a.reason);
+  return [fromUnits(a.original, d), fromUnits(a.approved, d), a.reason, a.moved_to ?? "", iso(a.at_ms), p.group, p.carc, p.retired ? "1" : "0"];
 }
 
 /** One CSV row per share, so an accountant can pivot by payer, state or date.
@@ -151,6 +162,52 @@ export async function listAll(rpc, contract, payee) {
     out.push(...page);
     if (page.length < 50) return out;
   }
+}
+
+
+const ADJ_SYSTEM = "http://terminology.hl7.org/CodeSystem/adjudication";
+const CARC_SYSTEM = "https://x12.org/codes/claim-adjustment-reason-codes";
+const CLAIM_TYPE = "http://terminology.hl7.org/CodeSystem/claim-type";
+
+/** FHIR R4 ClaimResponse for one invoice: one item per share, with the submitted and
+ *  benefit adjudication categories and the CARC reason when the payer recorded one.
+ *  Crypto amounts have no ISO currency, so this uses XXX (no currency) for NEAR and
+ *  XTS (test) for token invoices; callers should not read those as fiat. */
+export function claimResponse(inv, status, units) {
+  const { decimals: d } = units;
+  const currency = inv.token ? "XTS" : "XXX";
+  const money = (v) => ({ value: Number(fromUnits(v, d)), currency });
+  const concept = (system, code, display) => ({ coding: [{ system, code, ...(display ? { display } : {}) }] });
+  const adjudicated = inv.shares.find((s) => s.adjudication);
+  const items = inv.shares.map((s, i) => {
+    const a = s.adjudication;
+    const submitted = a ? a.original : s.amount;
+    const benefit = s.amount;
+    const benefitEntry = { category: concept(ADJ_SYSTEM, "benefit"), amount: money(benefit) };
+    if (a) {
+      const p = parseAdjustment(a.reason);
+      benefitEntry.reason = p.carc
+        ? concept(CARC_SYSTEM, `${p.group}-${p.carc}`, p.detail || a.reason)
+        : { text: a.reason };
+    }
+    return { itemSequence: i + 1, adjudication: [{ category: concept(ADJ_SYSTEM, "submitted"), amount: money(submitted) }, benefitEntry] };
+  });
+  const sum = (f) => inv.shares.reduce((x, s) => x + BigInt(f(s)), 0n);
+  return {
+    resourceType: "ClaimResponse",
+    id: inv.id,
+    status: "active",
+    type: { coding: [{ system: CLAIM_TYPE, code: "professional" }] },
+    use: "claim",
+    created: iso(inv.created_ms),
+    insurer: { display: adjudicated?.payer ?? "ClinicPay" },
+    outcome: inv.shares.some((s) => s.state === "Open") ? "partial" : "complete",
+    item: items,
+    total: [
+      { category: concept(ADJ_SYSTEM, "submitted"), amount: money(sum((s) => s.adjudication?.original ?? s.amount)) },
+      { category: concept(ADJ_SYSTEM, "benefit"), amount: money(sum((s) => s.amount)) },
+    ],
+  };
 }
 
 /** Plain-text summary of one invoice. `units` from unitsOf(). */

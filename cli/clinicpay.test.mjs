@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { buildCreateArgs, describe, invoicesToCsv, nearToYocto, yoctoToNear, toUnits, fromUnits, payCommand, CSV_HEADER } from "./lib.mjs";
+import { buildCreateArgs, claimResponse, describe, invoicesToCsv, nearToYocto, yoctoToNear, parseAdjustment, toUnits, fromUnits, payCommand, CSV_HEADER } from "./lib.mjs";
 
 const run = promisify(execFile);
 const N = 10n ** 24n;
@@ -83,7 +83,7 @@ test("CSV has one row per share, escapes quotes and commas", () => {
   assert.equal(lines[0], CSV_HEADER.join(","));
   assert.match(lines[1], /"Visit, ""12 Nov"""/);
   assert.match(lines[1], /,Paid,patient.testnet,2026-/);
-  assert.match(lines[2], /,anyone,4,Open,,,,,PartiallyPaid,,,,,$/);
+  assert.match(lines[2], /,anyone,4,Open,,,,,PartiallyPaid,,,,,,,,$/);
 });
 
 test("adjudicated shares show billed vs approved in status and CSV", () => {
@@ -95,7 +95,7 @@ test("adjudicated shares show billed vs approved in status and CSV", () => {
   const text = describe(adj, "Open");
   assert.match(text, /adjudicated by insurer.testnet .*billed 4, approved 3 NEAR \("CO-45, fee schedule"\); 1 NEAR moved to share #0/);
   const row = invoicesToCsv([adj], () => "Open").trim().split("\n")[2];
-  assert.match(row, /,4,3,"CO-45, fee schedule",0,2025-11-/);
+  assert.match(row, /,4,3,"CO-45, fee schedule",0,[^,]+,CO,45,0$/);
 });
 
 test("CLI status and export against a mock RPC node", async () => {
@@ -128,6 +128,11 @@ test("CLI status and export against a mock RPC node", async () => {
     assert.match(ft.stdout, /usdc.testnet ft_transfer_call/);
     const mainnet = await run("node", ["cli/clinicpay.mjs", "status", "--contract", "c.testnet", "--id", "INV-1", "--rpc", rpc, "--network", "mainnet"]);
     assert.match(mainnet.stdout, /network-config mainnet/);
+    const fhir = await run("node", ["cli/clinicpay.mjs", "export-fhir", "--contract", "c.testnet", "--id", "INV-1", "--rpc", rpc]);
+    const doc = JSON.parse(fhir.stdout);
+    assert.equal(doc.resourceType, "ClaimResponse");
+    assert.equal(doc.item.length, 2);
+    assert.equal(doc.currency ?? doc.total[0].amount.currency, "XXX");
     const ex = await run("node", ["cli/clinicpay.mjs", "export", "--contract", "c.testnet", "--clinic", "clinic.testnet", "--rpc", rpc]);
     const rows = ex.stdout.trim().split("\n");
     assert.equal(rows.length, 5);
@@ -141,4 +146,28 @@ test("CLI args command prints valid JSON and rejects unbalanced input", async ()
   const ok = await run("node", ["cli/clinicpay.mjs", "args", "--id", "I1", "--line", "Visit=1", "--share", "Anyone=1"]);
   assert.equal(JSON.parse(ok.stdout).lines[0].amount, N.toString());
   await assert.rejects(run("node", ["cli/clinicpay.mjs", "args", "--id", "I1", "--line", "Visit=1", "--share", "Anyone=2"]), /must equal/);
+});
+
+test("CARC prefixes parse; retired CR is flagged", () => {
+  assert.deepEqual(parseAdjustment("CO-45: fee schedule"), { group: "CO", carc: "45", detail: "fee schedule", retired: false });
+  assert.deepEqual(parseAdjustment("OA-23"), { group: "OA", carc: "23", detail: "", retired: false });
+  assert.equal(parseAdjustment("PR-1 deductible").carc, "1");
+  assert.equal(parseAdjustment("CR-18 retired code").retired, true);
+  assert.deepEqual(parseAdjustment("no code here"), { group: "", carc: "", detail: "no code here", retired: false });
+});
+
+test("FHIR ClaimResponse carries submitted and benefit adjudication", () => {
+  const adj = structuredClone(invoice);
+  adj.shares[1] = {
+    ...adj.shares[1], payer: "insurer.testnet", amount: (3n * N).toString(),
+    adjudication: { original: (4n * N).toString(), approved: (3n * N).toString(), reason: "CO-45: fee schedule", moved_to: 0, at_ms: "1763000000000" },
+  };
+  const cr = claimResponse(adj, "PartiallyPaid", { decimals: 24, symbol: "NEAR" });
+  assert.equal(cr.resourceType, "ClaimResponse");
+  assert.equal(cr.item.length, 2);
+  assert.equal(cr.item[1].adjudication[0].amount.value, 4);
+  assert.equal(cr.item[1].adjudication[1].amount.value, 3);
+  assert.equal(cr.item[1].adjudication[1].reason.coding[0].code, "CO-45");
+  assert.equal(cr.total[1].amount.value, 4);
+  assert.equal(cr.outcome, "partial");
 });
