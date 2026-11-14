@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import {
   accessKey, decodeSignedDelegate, latestBlock, outcomeSummary, parseSecretKey, sendTx, signTransaction, viewCall,
 } from "./near.mjs";
-import { Refused, checkInvoice, checkShape, checkToken } from "./policy.mjs";
+import { Refused, budgetFromEnv, checkInvoice, checkShape, checkToken } from "./policy.mjs";
 
 const DEFAULT_RPC = "https://rpc.testnet.near.org";
 
@@ -27,7 +27,7 @@ export function loadRelayer(env = process.env) {
 }
 
 /** Validate and relay one signed delegate. Returns {ok, tx_hash, logs, failure} or throws Refused. */
-export async function relay(b64, { rpc, contract, tokens, relayer }) {
+export async function relay(b64, { rpc, contract, tokens, relayer, budget }) {
   let d;
   try { d = decodeSignedDelegate(Buffer.from(String(b64), "base64")); } catch (e) { throw new Refused(`malformed delegate: ${e.message}`); }
   const block = await latestBlock(rpc);
@@ -43,6 +43,7 @@ export async function relay(b64, { rpc, contract, tokens, relayer }) {
     checkToken(intent, { senderBalance, contractRegistered: contractReg !== null, clinicRegistered: clinicReg !== null });
   }
 
+  budget?.take(d.sender_id, d.actions[0].gas);
   const key = await accessKey(rpc, relayer.accountId, relayer.signer.publicKey);
   const signedDelegateBytes = Buffer.from(String(b64), "base64");
   // The outer transaction goes to the payer's account: that is where the delegate executes.
@@ -92,7 +93,7 @@ function serve(o, relayer) {
     for await (const c of req) { body += c; if (body.length > 64 * 1024) return reply(413, { error: "too large" }); }
     try {
       const { signed_delegate } = JSON.parse(body);
-      const r = await serial(() => relay(signed_delegate, { rpc: o.rpc, contract: o.contract, tokens: o.tokens, relayer }));
+      const r = await serial(() => relay(signed_delegate, { rpc: o.rpc, contract: o.contract, tokens: o.tokens, relayer, budget }));
       reply(r.ok ? 200 : 422, r);
     } catch (e) {
       reply(e instanceof Refused ? 403 : 500, { error: e.message });
@@ -105,11 +106,12 @@ async function main(argv) {
   const [cmd, ...rest] = argv;
   const o = opts(rest);
   const relayer = loadRelayer();
+  const budget = budgetFromEnv();
   if (cmd === "serve") return serve(o, relayer);
   if (cmd === "submit") {
     if (!o.positionals[0]) throw new Error("submit needs the base64 signed delegate");
     try {
-      const r = await relay(o.positionals[0], { rpc: o.rpc, contract: o.contract, tokens: o.tokens, relayer });
+      const r = await relay(o.positionals[0], { rpc: o.rpc, contract: o.contract, tokens: o.tokens, relayer, budget });
       console.log(JSON.stringify(r, null, 2));
       if (!r.ok) process.exitCode = 1;
     } catch (e) {

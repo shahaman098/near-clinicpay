@@ -97,3 +97,62 @@ export function checkToken(intent, { senderBalance, contractRegistered, clinicRe
   if (!contractRegistered) refuse("ClinicPay is not registered on the token (storage_deposit)");
   if (!clinicRegistered) refuse("the clinic is not registered on the token (storage_deposit)");
 }
+
+/**
+ * Sliding-window budget for what the relayer will spend. Counts relays and the gas
+ * limit each delegate authorises, per payer and globally, so a leaked or hostile
+ * payer key cannot drain the relayer. All limits are env-configurable:
+ *
+ *   RELAYER_BUDGET_WINDOW_MS   default 60000
+ *   RELAYER_MAX_TX_PER_PAYER   default 10
+ *   RELAYER_MAX_TX_GLOBAL      default 100
+ *   RELAYER_MAX_GAS_GLOBAL     default 1000 (Tgas, summed gas limits)
+ */
+export class Budget {
+  constructor({ windowMs = 60_000, maxTxPerPayer = 10, maxTxGlobal = 100, maxGasGlobal = 1000n * 10n ** 12n, now = () => Date.now() } = {}) {
+    this.windowMs = windowMs;
+    this.maxTxPerPayer = maxTxPerPayer;
+    this.maxTxGlobal = maxTxGlobal;
+    this.maxGasGlobal = maxGasGlobal;
+    this.now = now;
+    this.entries = [];
+  }
+
+  prune() {
+    const cutoff = this.now() - this.windowMs;
+    this.entries = this.entries.filter((e) => e.t > cutoff);
+  }
+
+  /** Reserve budget for one relay, or throw Refused. Call only after all other checks. */
+  take(sender, gas) {
+    this.prune();
+    const mine = this.entries.filter((e) => e.sender === sender).length;
+    if (mine >= this.maxTxPerPayer) {
+      refuse(`payer budget: at most ${this.maxTxPerPayer} relays per ${Math.round(this.windowMs / 1000)}s`);
+    }
+    if (this.entries.length >= this.maxTxGlobal) {
+      refuse(`relayer budget: at most ${this.maxTxGlobal} relays per ${Math.round(this.windowMs / 1000)}s`);
+    }
+    const spent = this.entries.reduce((a, e) => a + e.gas, 0n);
+    if (spent + gas > this.maxGasGlobal) {
+      refuse(`relayer gas budget: ${this.maxGasGlobal / 10n ** 12n} Tgas per ${Math.round(this.windowMs / 1000)}s`);
+    }
+    this.entries.push({ t: this.now(), sender, gas });
+  }
+}
+
+export function budgetFromEnv(env = process.env) {
+  const n = (key, fallback) => {
+    const v = env[key];
+    if (v === undefined || v === "") return fallback;
+    const x = Number(v);
+    if (!Number.isFinite(x) || x <= 0) throw new Error(`${key} must be a positive number`);
+    return x;
+  };
+  return new Budget({
+    windowMs: n("RELAYER_BUDGET_WINDOW_MS", 60_000),
+    maxTxPerPayer: n("RELAYER_MAX_TX_PER_PAYER", 10),
+    maxTxGlobal: n("RELAYER_MAX_TX_GLOBAL", 100),
+    maxGasGlobal: BigInt(n("RELAYER_MAX_GAS_GLOBAL", 1000)) * 10n ** 12n,
+  });
+}

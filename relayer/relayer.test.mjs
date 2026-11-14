@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { b58decode, b58encode, decodeSignedDelegate, encodeTransaction, parseSecretKey, signDelegate } from "./near.mjs";
-import { Refused, checkInvoice, checkShape, checkToken } from "./policy.mjs";
+import { Budget, Refused, budgetFromEnv, checkInvoice, checkShape, checkToken } from "./policy.mjs";
 import { payAction } from "./payer.mjs";
 
 const TGAS = 10n ** 12n;
@@ -148,4 +148,33 @@ test("payer builds ft_transfer_call for token invoices and refuses NEAR ones", (
   assert.equal(c.action.deposit, 1n);
   assert.equal(JSON.parse(c.action.args.msg).invoice_id, "INV-1");
   assert.throws(() => payAction(CONTRACT, { ...inv, token: null }, 0), /pay it directly/);
+});
+
+test("relayer budget bounds per-payer, global and gas spend, and resets", () => {
+  let t = 1_000_000;
+  const b = new Budget({ windowMs: 1000, maxTxPerPayer: 2, maxTxGlobal: 3, maxGasGlobal: 10n * 10n ** 12n, now: () => t });
+  b.take("a", 4n * 10n ** 12n);
+  b.take("a", 4n * 10n ** 12n);
+  refused(() => b.take("a", 1n), /payer budget/);
+  b.take("b", 1n * 10n ** 12n);
+  refused(() => b.take("c", 1n), /relayer budget/);
+
+  const g = new Budget({ windowMs: 1000, maxTxPerPayer: 10, maxTxGlobal: 10, maxGasGlobal: 5n * 10n ** 12n, now: () => t });
+  g.take("a", 3n * 10n ** 12n);
+  refused(() => g.take("b", 3n * 10n ** 12n), /gas budget/);
+
+  t += 1001;
+  b.take("a", 1n); // the window rolled over
+});
+
+test("budgetFromEnv reads and validates limits", () => {
+  const b = budgetFromEnv({
+    RELAYER_BUDGET_WINDOW_MS: "5000", RELAYER_MAX_TX_PER_PAYER: "2",
+    RELAYER_MAX_TX_GLOBAL: "9", RELAYER_MAX_GAS_GLOBAL: "7",
+  });
+  assert.equal(b.windowMs, 5000);
+  assert.equal(b.maxTxPerPayer, 2);
+  assert.equal(b.maxTxGlobal, 9);
+  assert.equal(b.maxGasGlobal, 7n * 10n ** 12n);
+  assert.throws(() => budgetFromEnv({ RELAYER_MAX_TX_GLOBAL: "0" }), /positive/);
 });
