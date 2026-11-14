@@ -155,9 +155,10 @@ registered, payments are reverted and refunded (that is the rollback test above)
   failed NEAR payout.
 - `list_invoices` scans all invoices (fine at demo scale; needs an index at volume).
 - `web/invoice.html` is a read-only viewer that uses the same RPC calls as the CLI. It
-  was checked in Chrome against the local sandbox demo, for a NEAR invoice and for a
-  tUSDC invoice (the screenshot below is that run); it has not been used against testnet
-  or mainnet. The tested interfaces are the contract and CLI.
+  was checked in Chrome against the local sandbox demo at desktop, tablet and mobile
+  widths (no horizontal overflow), for a NEAR invoice and for a tUSDC invoice (the
+  screenshot below is that run); it has not been used against testnet or mainnet. The
+  tested interfaces are the contract and CLI.
 
   ![ClinicPay invoice page, read live from the local sandbox](web/invoice-page.png)
 - Not deployed to testnet or mainnet from this repo: deploying needs the team's own
