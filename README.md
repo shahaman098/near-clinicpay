@@ -49,9 +49,13 @@ who paid what and when. Refunds are another manual round trip.
   decisions, and checks the share on chain first. In the sandbox tests the patient's
   NEAR balance changes by exactly 0.
 - A **clinic dashboard** (`web/clinic.html`) reads every invoice of a clinic from
-  chain: billed, collected, outstanding and insurer adjustments per currency, who
-  still owes what, every insurer decision with its reason, and a one-click accountant
-  CSV. Each invoice links to a payer-facing invoice page (`web/invoice.html`).
+  chain: billed, collected, outstanding and insurer adjustments per currency, status
+  filters and search, who still owes what, every insurer decision with its reason, and
+  a one-click accountant CSV. Each invoice links to a payer-facing **invoice page**
+  (`web/invoice.html`): who pays what, the insurer's billed-versus-approved amount and
+  reason, an activity timeline, copyable pay commands, and an on-chain custody check.
+  `web/index.html` is a short landing page that links to both. All three are plain
+  HTML, CSS and ES modules with no build step, light and dark.
 - A zero-dependency **CLI** reads invoices straight from chain and exports an
   **accountant-ready CSV** (one row per share, with billed vs approved amounts and the
   adjudication reason).
@@ -160,6 +164,10 @@ funds needed: everything below runs on a local sandbox node.
    `export`, because it imports the CLI's own `invoicesToCsv`.
 
    ![ClinicPay clinic dashboard, read live from the local sandbox](web/clinic-dashboard.png)
+
+   Dark mode follows the system setting:
+
+   ![The same dashboard in dark mode](web/clinic-dashboard-dark.png)
 
 5. **Build the wasm** for deployment: `npm run build:wasm`
    (`contract/target/wasm32-unknown-unknown/release/clinicpay.wasm`).
@@ -332,12 +340,18 @@ Open Government Licence v3.0. The tool is offline and read-only. The bands
 - A reverted payout is refunded with a plain transfer. If the payer account no longer
   exists, that transfer fails and the funds stay in the contract, with no automatic
   recovery path.
-- `web/invoice.html` and `web/clinic.html` are read-only pages that use the same RPC
-  calls as the CLI. Both were checked in a browser against the local sandbox demo at
-  375 px, 768 px and desktop widths (no horizontal overflow), including the
-  adjudicated `INV-2026-0045` (screenshot below) and the gasless `INV-2026-0046`.
-  The figures on the dashboard were checked by hand against the demo's payments. They
-  have no automated browser tests and have not been used against testnet or mainnet.
+- `web/index.html`, `web/invoice.html` and `web/clinic.html` are read-only pages (no
+  keys, no signing) that use the same RPC calls as the CLI, with shared styles in
+  `web/app.css` and helpers in `web/ui.mjs`. In Chrome, against the local sandbox demo,
+  I checked: no horizontal overflow at 375, 768 and 1280 px on the landing page, the
+  dashboard, both connect screens, the not-found and RPC-error states, and invoices
+  `INV-2026-0042` to `0046` (including the adjudicated `0045`, screenshot below, and
+  the gasless `0046`); that both connect forms submit and load the right page; dark
+  mode on the landing page, the dashboard and one open invoice (`0043`); the dashboard
+  totals (160 / 70 / 90 / 10 tUSDC) by hand against the demo; the currency tabs,
+  status chips, search, Enter on an invoice link, and that the CSV button produces the
+  same text as `cli export`. The pages have no automated browser tests, were not tried
+  in Safari or Firefox, and have not been used against testnet or mainnet.
 
   ![ClinicPay invoice page, read live from the local sandbox](web/invoice-page.png)
 - Not deployed to testnet or mainnet yet: deploying needs the team's own funded NEAR
@@ -375,8 +389,10 @@ test-token/                minimal NEP-141 test token for those tests (no value)
 contract/examples/demo.rs  live local demo
 cli/                       read-only CLI + tests
 bench/                     NHS national cost benchmark (665 outpatient procedures) + tests
+web/index.html             landing page
 web/invoice.html           read-only invoice page (payer view)
 web/clinic.html            read-only clinic dashboard + CSV download
+web/app.css, web/ui.mjs    shared design system and UI helpers
 ```
 
 License: MIT.

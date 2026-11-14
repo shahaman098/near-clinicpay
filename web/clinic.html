@@ -3,201 +3,257 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:,">
-<title>ClinicPay clinic dashboard</title>
-<style>
-  :root { --bg:#fff; --fg:#14181f; --mut:#5b6472; --line:#e3e7ee; --card:#f6f8fb; --ok:#0a7a3d; --warn:#9a5b00; --bad:#b3261e; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#0f1319; --fg:#e8ecf2; --mut:#9aa4b2; --line:#252c38; --card:#161b23; --ok:#48c78e; --warn:#f0b429; --bad:#ff7b72; } }
-  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 system-ui,sans-serif; }
-  main { max-width:1000px; margin:0 auto; padding:24px 16px 64px; }
-  h1 { font-size:1.4rem; margin:0 0 4px; } h2 { font-size:1.05rem; margin:28px 0 8px; } .mut { color:var(--mut); }
-  .brand { font-size:.95rem; margin:0 0 14px; }
-  form { display:grid; gap:8px; grid-template-columns:2fr 2fr auto; margin:16px 0; } input,button { font:inherit; padding:8px; min-width:0; }
-  #err { color:var(--bad); }
-  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin:12px 0; }
-  .tile { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
-  .tile b { display:block; font-size:1.3rem; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
-  .tile span { color:var(--mut); font-size:.85rem; }
-  .scroll { overflow-x:auto; }
-  table { width:100%; border-collapse:collapse; } th,td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { font-size:.85rem; color:var(--mut); font-weight:600; }
-  td { overflow-wrap:anywhere; } td.n,th.n { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .badge { display:inline-block; padding:1px 8px; border-radius:99px; border:1px solid currentColor; font-size:.8rem; font-weight:600; white-space:nowrap; }
-  .Paid { color:var(--ok); } .PartiallyPaid,.Open { color:var(--warn); } .Overdue,.Cancelled,.Refunded,.Denied { color:var(--bad); }
-  a { color:inherit; }
-  .bar { height:6px; background:var(--line); border-radius:99px; overflow:hidden; margin-top:6px; } .bar span { display:block; height:100%; background:var(--ok); }
-  .row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; }
-  @media (max-width:640px) {
-    main { padding:20px 12px 48px; }
-    form { grid-template-columns:1fr; }
-    th,td { padding:8px 4px; font-size:.9rem; }
-    .hide-sm { display:none; }
-  }
-</style>
+<meta name="description" content="ClinicPay clinic dashboard: split-payer invoices settled on NEAR.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d7c6c'/%3E%3Cpath d='M16 9v14M9 16h14' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<title>Dashboard · ClinicPay</title>
+<link rel="stylesheet" href="app.css">
 </head>
 <body>
-<main>
-  <p class="brand"><strong>ClinicPay</strong> <span class="mut">· clinic dashboard · read live from NEAR</span></p>
-  <form id="f">
-    <input name="contract" aria-label="ClinicPay contract account" placeholder="ClinicPay contract (e.g. clinicpay.testnet)" required>
-    <input name="clinic" aria-label="Clinic account" placeholder="clinic account" required>
-    <button>Load</button>
-  </form>
-  <p id="err" role="alert"></p>
-  <section id="out" hidden>
-    <div class="row"><h1 id="title"></h1><button id="csv" type="button">Download accountant CSV</button></div>
-    <p class="mut" id="meta"></p>
-    <div id="totals"></div>
-    <h2>Outstanding by payer</h2>
-    <div class="scroll"><table><thead><tr><th>Payer</th><th>Invoices</th><th class="n">Owed</th><th class="hide-sm">Oldest due</th></tr></thead><tbody id="owed"></tbody></table></div>
-    <h2>Insurer decisions</h2>
-    <div class="scroll"><table><thead><tr><th>Invoice</th><th>Insurer</th><th class="n">Billed</th><th class="n">Approved</th><th>Reason</th></tr></thead><tbody id="decisions"></tbody></table></div>
-    <h2>Invoices</h2>
-    <div class="scroll"><table><thead><tr><th>Invoice</th><th>Status</th><th class="n">Total</th><th class="n">Collected</th><th class="hide-sm">Created</th></tr></thead><tbody id="invoices"></tbody></table></div>
-    <p class="mut">Read-only: this page signs nothing and holds no keys. Every number comes from the contract's view calls.</p>
-  </section>
-</main>
+<div id="app"></div>
 <script type="module">
-import { invoicesToCsv, fromUnits } from "../cli/lib.mjs";
+import { invoicesToCsv } from "../cli/lib.mjs";
+import {
+  config, pageUrl, view, money, pct, date, ago, h, icon, pill, acct, avatar, toast, emptyState, errorBanner, topbar, setNetworkState,
+} from "./ui.mjs";
 
-const q = new URLSearchParams(location.search);
-const rpcUrl = q.get("rpc") || "https://rpc.testnet.near.org";
-const when = (ms) => (ms ? new Date(Number(ms)).toISOString().slice(0, 10) : "");
-const el = (tag, text, cls) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; };
-const row = (cells) => { const tr = document.createElement("tr"); cells.forEach((c) => tr.append(c)); return tr; };
-const td = (text, cls) => el("td", text, cls);
+const params = new URLSearchParams(location.search);
+const cfg = config(params);
+const clinic = params.get("clinic") || "";
+const app = document.getElementById("app");
+const state = { invoices: [], statuses: new Map(), metas: new Map(), currency: null, filter: "all", query: "", loadedAt: null };
 
-async function view(contract, method, args) {
-  const r = await fetch(rpcUrl, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
-    jsonrpc: "2.0", id: "c", method: "query",
-    params: { request_type: "call_function", finality: "final", account_id: contract, method_name: method, args_base64: btoa(JSON.stringify(args)) } }) });
-  const b = await r.json();
-  if (b.error) throw new Error(JSON.stringify(b.error.cause || b.error));
-  if (b.result.error) throw new Error(b.result.error);
-  return JSON.parse(new TextDecoder().decode(new Uint8Array(b.result.result)));
+app.append(topbar(cfg, "dashboard", { clinic }));
+const main = h("main", { class: "page", id: "main" });
+app.append(main, h("footer", { class: "foot" },
+  h("span", {}, "Read-only. This page signs nothing and holds no keys. Every number comes from the contract's view calls."),
+  h("span", {}, "ClinicPay on NEAR")));
+
+if (!cfg.contract || !clinic) renderConnect(); else load();
+
+// ---- connect screen ------------------------------------------------------------
+function renderConnect() {
+  document.title = "Open a clinic · ClinicPay";
+  const custom = h("div", { class: "field", hidden: true },
+    h("label", { for: "rpc" }, "RPC URL"), h("input", { class: "input", id: "rpc", name: "rpc", placeholder: "http://127.0.0.1:3030", value: params.get("rpc") || "" }));
+  const net = h("select", { class: "select", id: "network", name: "network", onchange: () => { custom.hidden = net.value !== "custom"; } },
+    h("option", { value: "testnet" }, "Testnet"), h("option", { value: "mainnet" }, "Mainnet"), h("option", { value: "custom" }, "Custom RPC (local sandbox)"));
+  if (params.get("rpc")) { net.value = "custom"; custom.hidden = false; }
+  const form = h("form", { class: "card-body", onsubmit: (e) => {
+    e.preventDefault();
+    const d = new FormData(form);
+    const p = new URLSearchParams({ contract: d.get("contract").trim(), clinic: d.get("clinic").trim() });
+    if (d.get("network") === "custom") p.set("rpc", d.get("rpc").trim()); else if (d.get("network") !== "testnet") p.set("network", d.get("network"));
+    location.search = p.toString();
+  } },
+    h("div", {}, h("h1", {}, "Open your clinic dashboard"), h("p", {}, "See every invoice, who still owes what, and every insurer decision, read live from NEAR.")),
+    h("div", { class: "field" }, h("label", { for: "contract" }, "ClinicPay contract"), h("input", { class: "input", id: "contract", name: "contract", required: true, placeholder: "clinicpay.testnet", value: cfg.contract, autocomplete: "off" })),
+    h("div", { class: "field" }, h("label", { for: "clinic" }, "Clinic account"), h("input", { class: "input", id: "clinic", name: "clinic", required: true, placeholder: "yourclinic.testnet", value: clinic, autocomplete: "off" }),
+      h("span", { class: "hint" }, "The NEAR account that created the invoices and receives the payments.")),
+    h("div", { class: "field" }, h("label", { for: "network" }, "Network"), net),
+    custom,
+    h("button", { class: "btn btn-primary", type: "submit", style: "height:40px" }, "Open dashboard", icon("arrow")));
+  main.replaceChildren(h("div", { class: "connect card" }, form));
 }
 
-async function listAll(contract, payee) {
+// ---- data ---------------------------------------------------------------------------
+async function listAll() {
   const out = [];
   for (let from = 0; ; from += 50) {
-    const page = await view(contract, "list_invoices", { payee, from_index: from, limit: 50 });
+    const page = await view(cfg.rpc, cfg.contract, "list_invoices", { payee: clinic, from_index: from, limit: 50 });
     out.push(...page);
     if (page.length < 50) return out;
   }
 }
 
-/** Per-currency money summary. Amounts are BigInt in the currency's smallest unit. */
-function summarize(invoices) {
+async function load() {
+  document.title = "Dashboard · ClinicPay";
+  if (!state.loadedAt) renderSkeleton();
+  const btn = document.getElementById("refresh"); btn?.classList.add("spin"); btn && (btn.disabled = true);
+  try {
+    const invoices = await listAll();
+    const statuses = new Map(await Promise.all(invoices.map(async (i) => [i.id, await view(cfg.rpc, cfg.contract, "get_status", { invoice_id: i.id })])));
+    const metas = new Map([["NEAR", { decimals: 24, symbol: "NEAR" }]]);
+    for (const t of new Set(invoices.map((i) => i.token).filter(Boolean))) metas.set(t, await view(cfg.rpc, t, "ft_metadata", {}));
+    Object.assign(state, { invoices, statuses, metas, loadedAt: Date.now() });
+    const currencies = currencyKeys();
+    if (!currencies.includes(state.currency)) state.currency = currencies[0] ?? null;
+    setNetworkState(true);
+    render();
+  } catch (e) {
+    setNetworkState(false);
+    main.replaceChildren(header(), errorBanner(e.message, load));
+  }
+}
+
+function currencyKeys() {
   const by = new Map();
+  for (const inv of state.invoices) { const k = inv.token ?? "NEAR"; by.set(k, (by.get(k) ?? 0) + 1); }
+  return [...by.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
+}
+const metaOf = (inv) => state.metas.get(inv.token ?? "NEAR");
+const totalOf = (inv) => inv.lines.reduce((a, l) => a + BigInt(l.amount), 0n);
+const paidOf = (inv) => inv.shares.filter((s) => s.state === "Paid").reduce((a, s) => a + BigInt(s.amount), 0n);
+
+function summarize(invoices) {
+  const t = { billed: 0n, collected: 0n, outstanding: 0n, refunded: 0n, adjusted: 0n, denied: 0, openShares: 0, decisions: 0 };
   for (const inv of invoices) {
-    const key = inv.token ?? "NEAR";
-    if (!by.has(key)) by.set(key, { billed: 0n, collected: 0n, outstanding: 0n, refunded: 0n, adjusted: 0n, denied: 0, invoices: 0 });
-    const t = by.get(key);
-    t.invoices++;
     if (inv.cancelled) continue;
-    t.billed += inv.lines.reduce((a, l) => a + BigInt(l.amount), 0n);
+    t.billed += totalOf(inv);
     for (const s of inv.shares) {
       if (s.state === "Paid") t.collected += BigInt(s.amount);
-      if (s.state === "Open") t.outstanding += BigInt(s.amount);
+      if (s.state === "Open") { t.outstanding += BigInt(s.amount); t.openShares++; }
       if (s.state === "Refunded") t.refunded += BigInt(s.amount);
       if (s.state === "Denied") t.denied++;
-      if (s.adjudication) t.adjusted += BigInt(s.adjudication.original) - BigInt(s.adjudication.approved);
+      if (s.adjudication) { t.decisions++; t.adjusted += BigInt(s.adjudication.original) - BigInt(s.adjudication.approved); }
     }
   }
-  return by;
+  return t;
 }
 
-async function load(contract, clinic) {
-  const err = document.getElementById("err"); err.textContent = "Loading…";
-  try {
-    const invoices = await listAll(contract, clinic);
-    const statuses = new Map(await Promise.all(invoices.map(async (i) => [i.id, await view(contract, "get_status", { invoice_id: i.id })])));
-    const metas = new Map([["NEAR", { decimals: 24, symbol: "NEAR" }]]);
-    for (const t of new Set(invoices.map((i) => i.token).filter(Boolean))) metas.set(t, await view(t, "ft_metadata", {}));
-    const unit = (inv) => metas.get(inv.token ?? "NEAR");
-    const money = (v, m) => `${fromUnits(v, m.decimals)} ${m.symbol}`;
-    const link = (inv) => { const a = el("a", inv.id); a.href = `invoice.html?contract=${encodeURIComponent(contract)}&id=${encodeURIComponent(inv.id)}&rpc=${encodeURIComponent(rpcUrl)}`; return a; };
-
-    document.getElementById("title").textContent = `${clinic}`;
-    const open = [...statuses.values()].filter((s) => ["Open", "PartiallyPaid", "Overdue"].includes(s)).length;
-    const overdue = [...statuses.values()].filter((s) => s === "Overdue").length;
-    document.getElementById("meta").textContent =
-      `${invoices.length} invoice${invoices.length === 1 ? "" : "s"} on ${contract} · ${open} awaiting payment · ${overdue} overdue`;
-
-    const totals = document.getElementById("totals"); totals.replaceChildren();
-    for (const [key, t] of summarize(invoices)) {
-      const m = metas.get(key);
-      const pct = t.billed === 0n ? 0 : Number((t.collected * 100n) / t.billed);
-      totals.append(el("p", `${m.symbol}${key === "NEAR" ? "" : ` · token ${key}`} · ${t.invoices} invoice${t.invoices === 1 ? "" : "s"}`, "mut"));
-      const tiles = el("div", undefined, "tiles");
-      const tile = (label, value, bar) => { const d = el("div", undefined, "tile"); d.append(el("span", label), el("b", value)); if (bar !== undefined) { const b = el("div", undefined, "bar"); const s = el("span"); s.style.width = `${bar}%`; b.append(s); d.append(b); } tiles.append(d); };
-      tile("Billed", money(t.billed, m));
-      tile(`Collected · ${pct}%`, money(t.collected, m), pct);
-      tile("Outstanding", money(t.outstanding, m));
-      tile("Insurer adjustments", `${money(t.adjusted, m)}${t.denied ? ` · ${t.denied} denied` : ""}`);
-      tile("Refunded", money(t.refunded, m));
-      totals.append(tiles);
-    }
-
-    const owed = new Map();
-    for (const inv of invoices) {
-      if (inv.cancelled) continue;
-      inv.shares.forEach((s) => {
-        if (s.state !== "Open") return;
-        const k = `${s.payer ?? "anyone"}|${inv.token ?? "NEAR"}`;
-        const o = owed.get(k) ?? { payer: s.payer ?? "anyone", m: unit(inv), amount: 0n, ids: [], due: null };
-        o.amount += BigInt(s.amount); o.ids.push(inv);
-        if (inv.due_ms && (!o.due || Number(inv.due_ms) < o.due)) o.due = Number(inv.due_ms);
-        owed.set(k, o);
-      });
-    }
-    const O = document.getElementById("owed"); O.replaceChildren();
-    [...owed.values()].sort((a, b) => b.ids.length - a.ids.length).forEach((o) => {
-      const ids = td(); o.ids.forEach((inv, i) => { if (i) ids.append(", "); ids.append(link(inv)); });
-      O.append(row([td(o.payer), ids, td(money(o.amount, o.m), "n"), td(o.due ? when(o.due) : "—", "hide-sm")]));
-    });
-    if (!owed.size) O.append(row([td("Nothing outstanding.", "mut")]));
-
-    const D = document.getElementById("decisions"); D.replaceChildren();
-    for (const inv of invoices) inv.shares.forEach((s) => {
-      const a = s.adjudication; if (!a) return;
-      const m = unit(inv);
-      const reason = td(a.reason); if (a.approved === "0") reason.prepend(el("span", "Denied ", "badge Denied"), " ");
-      const id = td(); id.append(link(inv));
-      D.append(row([id, td(s.payer), td(money(a.original, m), "n"), td(money(a.approved, m), "n"), reason]));
-    });
-    if (!D.children.length) D.append(row([td("No insurer decisions yet.", "mut")]));
-
-    const I = document.getElementById("invoices"); I.replaceChildren();
-    [...invoices].reverse().forEach((inv) => {
-      const m = unit(inv); const st = statuses.get(inv.id);
-      const total = inv.lines.reduce((a, l) => a + BigInt(l.amount), 0n);
-      const got = inv.shares.filter((s) => s.state === "Paid").reduce((a, s) => a + BigInt(s.amount), 0n);
-      const first = td(); first.append(link(inv), el("div", inv.memo, "mut"));
-      const badge = td(); badge.append(el("span", st, `badge ${st}`));
-      I.append(row([first, badge, td(money(total, m), "n"), td(money(got, m), "n"), td(when(inv.created_ms), "hide-sm")]));
-    });
-
-    document.getElementById("csv").onclick = () => {
-      const csv = invoicesToCsv(invoices, (inv) => statuses.get(inv.id), (t) => metas.get(t));
-      const a = el("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-      a.download = `clinicpay-${clinic}.csv`; a.click(); URL.revokeObjectURL(a.href);
-    };
-    err.textContent = "";
-    document.getElementById("out").hidden = false;
-  } catch (e) { err.textContent = e.message; document.getElementById("out").hidden = true; }
+// ---- views ----------------------------------------------------------------------------
+function header() {
+  const refresh = h("button", { class: "btn", id: "refresh", type: "button", onclick: load }, icon("refresh"), "Refresh");
+  const csv = h("button", { class: "btn btn-primary", type: "button", onclick: downloadCsv, disabled: !state.invoices.length }, icon("download"), "Export CSV");
+  return h("div", { class: "page-head" },
+    h("div", {},
+      h("h1", {}, "Clinic overview"),
+      h("div", { class: "sub" }, avatar(clinic), acct(clinic, { cfg }),
+        state.loadedAt ? h("span", { class: "muted", id: "updated", title: new Date(state.loadedAt).toLocaleString() }, `· Updated ${ago(state.loadedAt)}`) : null)),
+    h("div", { class: "actions" }, refresh, csv));
 }
 
-document.getElementById("f").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const d = new FormData(e.target); const u = new URL(location.href);
-  u.searchParams.set("contract", d.get("contract")); u.searchParams.set("clinic", d.get("clinic")); history.replaceState(null, "", u);
-  load(d.get("contract"), d.get("clinic"));
-});
-if (q.get("contract") && q.get("clinic")) {
-  document.querySelector("[name=contract]").value = q.get("contract");
-  document.querySelector("[name=clinic]").value = q.get("clinic");
-  load(q.get("contract"), q.get("clinic"));
+function renderSkeleton() {
+  const sk = (w, hgt = 14) => h("div", { class: "skel", style: `width:${w};height:${hgt}px` });
+  const kpis = h("div", { class: "kpis" }, ...[0, 1, 2, 3].map(() => h("div", { class: "card kpi" }, sk("40%"), h("div", { style: "height:14px" }), sk("70%", 26), h("div", { style: "height:12px" }), sk("55%"))));
+  const rows = h("div", { class: "card" }, h("div", { class: "card-head" }, sk("120px", 16)),
+    h("div", { class: "card-body", style: "display:grid;gap:18px" }, ...[0, 1, 2, 3, 4].map(() => sk("100%", 18))));
+  main.replaceChildren(header(), kpis, rows);
+}
+
+function render() {
+  const all = state.invoices;
+  if (!all.length) {
+    main.replaceChildren(header(), h("div", { class: "card" }, emptyState("file", "No invoices yet",
+      "Invoices this clinic creates on the contract appear here, with every payment as it settles.")));
+    return;
+  }
+  const cur = state.currency;
+  const meta = state.metas.get(cur);
+  const inCur = all.filter((i) => (i.token ?? "NEAR") === cur);
+  const t = summarize(inCur);
+  const currencies = currencyKeys();
+
+  const tabs = currencies.length > 1 ? h("div", { class: "tabs", role: "tablist", "aria-label": "Currency", style: "margin-bottom:16px" },
+    ...currencies.map((k) => h("button", { role: "tab", type: "button", "aria-selected": String(k === cur), title: k === "NEAR" ? "Native NEAR" : `NEP-141 token ${k}`,
+      onclick: () => { state.currency = k; render(); } }, state.metas.get(k).symbol))) : null;
+
+  const rate = pct(t.collected, t.billed);
+  const kpi = (label, ico, tone, value, foot, meter) => h("div", { class: "card kpi" },
+    h("div", { class: "kpi-top" }, label, h("span", { class: `kpi-ico ${tone}` }, icon(ico))),
+    h("div", { class: "kpi-val num" }, value[0], h("small", {}, value[1])),
+    meter !== undefined ? h("div", { class: "meter", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(rate), "aria-label": "Collected" }, h("span", { style: `width:${meter}%` })) : null,
+    h("div", { class: "kpi-foot" }, foot));
+  const split = (v) => { const s = money(v, meta); const i = s.lastIndexOf(" "); return [s.slice(0, i), s.slice(i + 1)]; };
+  const kpis = h("div", { class: "kpis" },
+    kpi("Billed", "file", "", split(t.billed), `${inCur.length} invoice${inCur.length === 1 ? "" : "s"}${t.refunded > 0n ? ` · ${money(t.refunded, meta)} refunded` : ""}`),
+    kpi("Collected", "check", "brand", split(t.collected), `${rate}% of billed, settled straight to the clinic`, rate),
+    kpi("Outstanding", "clock", "warn", split(t.outstanding), `${t.openShares} open share${t.openShares === 1 ? "" : "s"}`),
+    kpi("Insurer adjustments", "scale", "info", split(t.adjusted), `${t.decisions} decision${t.decisions === 1 ? "" : "s"}${t.denied ? ` · ${t.denied} denied` : ""} · moved to other payers`));
+
+  main.replaceChildren(header(), tabs ?? "", kpis,
+    h("div", { class: "grid grid-main" }, invoicesCard(inCur, meta), h("div", { class: "stack" }, owedCard(inCur, meta), decisionsCard(inCur, meta))));
+}
+
+// One timer for the page: keeps "Updated N min ago" fresh across re-renders.
+setInterval(() => {
+  const u = document.getElementById("updated");
+  if (u && state.loadedAt) u.textContent = `· Updated ${ago(state.loadedAt)}`;
+}, 30000);
+
+function invoicesCard(list, meta) {
+  const FILTERS = [["all", "All"], ["due", "Awaiting payment"], ["Overdue", "Overdue"], ["Paid", "Paid"], ["Cancelled", "Cancelled"]];
+  const st = (inv) => state.statuses.get(inv.id);
+  const match = (inv, f) => f === "all" || (f === "due" ? ["Open", "PartiallyPaid", "Overdue"].includes(st(inv)) : st(inv) === f);
+  const q = state.query.toLowerCase();
+  const rows = [...list].reverse().filter((inv) => match(inv, state.filter))
+    .filter((inv) => !q || inv.id.toLowerCase().includes(q) || inv.memo.toLowerCase().includes(q) || inv.shares.some((s) => (s.payer ?? "").toLowerCase().includes(q)));
+
+  const tbody = h("tbody", {}, ...rows.map((inv) => {
+    const total = totalOf(inv), paid = paidOf(inv);
+    const href = pageUrl("invoice.html", cfg, { id: inv.id });
+    const go = () => { location.href = href; };
+    // The invoice id is a real link (one keyboard stop per row, Enter opens it); the whole row is a mouse target too.
+    return h("tr", { class: "link", onclick: go },
+      h("td", {}, h("a", { class: "title", href, onclick: (e) => e.stopPropagation() }, inv.id), h("div", { class: "desc" }, inv.memo || "—")),
+      h("td", {}, pill(st(inv))),
+      h("td", { class: "r num" }, h("div", { class: "title" }, money(total, meta)), h("div", { class: "desc" }, `${money(paid, meta)} paid`)),
+      h("td", { class: "hide-sm muted" }, date(inv.created_ms)));
+  }));
+  const search = h("div", { class: "search", style: "min-width:200px;flex:1;max-width:280px" }, icon("search"),
+    h("input", { class: "input", type: "search", placeholder: "Search invoices or payers", "aria-label": "Search invoices", value: state.query,
+      oninput: (e) => { state.query = e.target.value; const pos = e.target.selectionStart; render(); const n = document.querySelector(".search input"); n.focus(); n.setSelectionRange(pos, pos); } }));
+  const chips = h("div", { class: "chips", role: "group", "aria-label": "Filter by status" }, ...FILTERS.map(([k, label]) =>
+    h("button", { class: "chip", type: "button", "aria-pressed": String(state.filter === k), onclick: () => { state.filter = k; render(); } },
+      label, h("span", { class: "count" }, String(list.filter((i) => match(i, k)).length)))));
+
+  return h("section", { class: "card", "aria-labelledby": "inv-h" },
+    h("div", { class: "card-head" }, h("h2", { id: "inv-h" }, "Invoices"), search),
+    h("div", { style: "padding:12px 20px;border-bottom:1px solid var(--border)" }, chips),
+    rows.length
+      ? h("div", { class: "table-wrap" }, h("table", { class: "table" },
+          h("thead", {}, h("tr", {}, h("th", {}, "Invoice"), h("th", {}, "Status"), h("th", { class: "r" }, "Amount"), h("th", { class: "hide-sm" }, "Created"))), tbody))
+      : emptyState("search", "No matching invoices", "Try another filter or search term."));
+}
+
+function owedCard(list, meta) {
+  const owed = new Map();
+  for (const inv of list) {
+    if (inv.cancelled) continue;
+    for (const s of inv.shares) {
+      if (s.state !== "Open") continue;
+      const k = s.payer ?? "anyone";
+      const o = owed.get(k) ?? { payer: s.payer, amount: 0n, invoices: new Set(), label: s.label };
+      o.amount += BigInt(s.amount); o.invoices.add(inv.id); owed.set(k, o);
+    }
+  }
+  const items = [...owed.values()].sort((a, b) => (b.amount > a.amount ? 1 : b.amount < a.amount ? -1 : 0));
+  return h("section", { class: "card", "aria-labelledby": "owed-h" },
+    h("div", { class: "card-head" }, h("h2", { id: "owed-h" }, "Who still owes"), h("span", { class: "meta" }, meta.symbol)),
+    items.length ? h("ul", { class: "list" }, ...items.map((o) => h("li", {},
+      o.payer ? avatar(o.payer) : h("span", { class: "avatar", style: "background:var(--text-3)" }, "?"),
+      h("div", { class: "grow" }, o.payer ? acct(o.payer, { cfg }) : h("span", { class: "muted" }, "Anyone"),
+        h("div", { class: "muted", style: "font-size:12.5px" }, `${o.label} · ${[...o.invoices].join(", ")}`)),
+      h("span", { class: "amt" }, money(o.amount, meta)))))
+      : emptyState("check", "All settled", "No open shares in this currency."));
+}
+
+function decisionsCard(list, meta) {
+  const items = [];
+  for (const inv of list) inv.shares.forEach((s, i) => { if (s.adjudication) items.push({ inv, s, i }); });
+  items.sort((a, b) => Number(b.s.adjudication.at_ms) - Number(a.s.adjudication.at_ms));
+  return h("section", { class: "card", "aria-labelledby": "dec-h" },
+    h("div", { class: "card-head" }, h("h2", { id: "dec-h" }, "Insurer decisions"), h("span", { class: "meta" }, "signed on chain")),
+    items.length ? h("ul", { class: "list" }, ...items.map(({ inv, s }) => {
+      const a = s.adjudication;
+      const denied = a.approved === "0";
+      return h("li", { style: "align-items:flex-start" },
+        avatar(s.payer),
+        h("div", { class: "grow" },
+          h("div", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" },
+            h("a", { class: "title", href: pageUrl("invoice.html", cfg, { id: inv.id }), style: "font-weight:600;color:var(--text)" }, inv.id),
+            denied ? pill("Denied") : h("span", { class: "pill info" }, "Adjusted")),
+          h("div", { style: "margin-top:4px" }, `"${a.reason}"`),
+          h("div", { class: "muted", style: "font-size:12.5px;margin-top:2px" }, `${date(a.at_ms)} · by `, acct(s.payer, { cfg }))),
+        h("div", { style: "text-align:right" }, h("div", { class: "strike num" }, money(a.original, meta)), h("div", { class: "amt" }, money(a.approved, meta))));
+    }))
+      : emptyState("scale", "No decisions yet", "When an insurer approves less than billed, it shows here with its reason."));
+}
+
+function downloadCsv() {
+  const csv = invoicesToCsv(state.invoices, (inv) => state.statuses.get(inv.id), (t) => state.metas.get(t));
+  const a = h("a", { href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: `clinicpay-${clinic}-${new Date().toISOString().slice(0, 10)}.csv` });
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`Exported ${state.invoices.length} invoices`);
 }
 </script>
 </body>

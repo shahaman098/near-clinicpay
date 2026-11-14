@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="ClinicPay splits a clinic invoice between the patient and the insurer, records insurer decisions on NEAR, and settles in stablecoin without the payer needing gas.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230d7c6c'/%3E%3Cpath d='M16 9v14M9 16h14' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<title>ClinicPay · Split-payer clinic invoices on NEAR</title>
+<link rel="stylesheet" href="app.css">
+<style>
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  .hero-land { padding: 72px 0 56px; text-align: center; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 99px; background: var(--brand-soft); color: var(--brand); font-weight: 600; font-size: 12.5px; }
+  .hero-land h1 { font-size: clamp(32px, 6vw, 56px); line-height: 1.05; letter-spacing: -.035em; margin: 18px auto 16px; max-width: 760px; font-weight: 750; }
+  .hero-land h1 em { font-style: normal; background: linear-gradient(90deg, var(--brand), #14b8a6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero-land p.lead { font-size: 18px; color: var(--text-3); max-width: 620px; margin: 0 auto 28px; }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .cta .btn { height: 44px; padding: 0 20px; font-size: 14.5px; }
+  .values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; padding-bottom: 72px; }
+  .value { padding: 24px; }
+  .value .kpi-ico { width: 40px; height: 40px; border-radius: 10px; margin-bottom: 16px; }
+  .value h3 { margin: 0 0 6px; font-size: 16px; letter-spacing: -.01em; }
+  .value p { margin: 0; color: var(--text-3); }
+  section.how { padding: 56px 0 72px; border-top: 1px solid var(--border); scroll-margin-top: 60px; }
+  section.how h2, .try h2 { font-size: 28px; letter-spacing: -.025em; margin: 0 0 8px; text-align: center; }
+  section.how > .wrap > p { text-align: center; color: var(--text-3); margin: 0 0 36px; }
+  .steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; list-style: none; margin: 0; padding: 0; counter-reset: s; }
+  .steps li { counter-increment: s; position: relative; padding: 22px 20px; }
+  .steps li::before { content: counter(s); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 99px; background: var(--brand); color: var(--brand-ink); font-weight: 700; font-size: 13px; margin-bottom: 14px; }
+  .steps h3 { margin: 0 0 6px; font-size: 15px; }
+  .steps p { margin: 0; color: var(--text-3); font-size: 13.5px; }
+  .try { padding: 0 0 72px; }
+  .try .card { padding: 32px; text-align: center; max-width: 720px; margin: 0 auto; }
+  .try p { color: var(--text-3); margin: 0 auto 20px; max-width: 520px; }
+  @media (max-width: 860px) { .values { grid-template-columns: minmax(0, 1fr); } .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 640px) { .wrap { padding: 0 16px; } .hero-land { padding: 44px 0 36px; } .hero-land p.lead { font-size: 16px; } .steps { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<div id="top"></div>
+<main>
+  <div class="wrap hero-land">
+    <span class="eyebrow">Built on NEAR · stablecoin settlement</span>
+    <h1>One invoice, <em>every payer</em> settled.</h1>
+    <p class="lead">ClinicPay splits a clinic bill between the patient and the insurer, records the insurer's decision on chain, and pays the clinic directly. Nothing is held in between.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="clinic.html">Open a clinic dashboard</a>
+      <a class="btn" href="invoice.html">Look up an invoice</a>
+    </div>
+  </div>
+
+  <div class="wrap values">
+    <div class="card value"><span class="kpi-ico brand" id="ico-split"></span><h3>Split between payers</h3><p>One invoice carries a share per payer: the patient's co-pay and the insurer's portion. Each pays their own share, in any order.</p></div>
+    <div class="card value"><span class="kpi-ico info" id="ico-scale"></span><h3>Insurer decisions on chain</h3><p>When an insurer approves less than billed, the reason and the new amount are signed on chain and the difference moves to the next payer.</p></div>
+    <div class="card value"><span class="kpi-ico warn" id="ico-zap"></span><h3>Gasless stablecoin payments</h3><p>Payers settle in a stablecoin by signing a message. A relayer covers the network fee, so they never need to hold NEAR.</p></div>
+  </div>
+
+  <section class="how" id="how">
+    <div class="wrap">
+      <h2>How it works</h2>
+      <p>From bill to settled in four steps, every one checkable on chain.</p>
+      <ol class="steps">
+        <li class="card"><h3>Clinic issues the invoice</h3><p>Line items, a share for each payer, and an optional due date go into the contract.</p></li>
+        <li class="card"><h3>Insurer adjudicates</h3><p>The insurer approves, reduces or denies its share with a reason. The shortfall moves to the patient's share.</p></li>
+        <li class="card"><h3>Payers settle</h3><p>Each share is paid from a wallet or gaslessly. Funds are forwarded to the clinic in the same flow.</p></li>
+        <li class="card"><h3>Everyone can verify</h3><p>The dashboard and invoice page read straight from the chain, including that ClinicPay holds zero.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="try wrap">
+    <div class="card">
+      <h2>See it live</h2>
+      <p>These pages are read-only: they sign nothing and hold no keys. Point them at any ClinicPay contract on testnet, mainnet or a local node.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="clinic.html">Clinic dashboard</a>
+        <a class="btn" href="invoice.html">Payer invoice view</a>
+      </div>
+    </div>
+  </section>
+</main>
+<footer class="foot"><span>ClinicPay on NEAR. Read-only pages, no keys, no tracking.</span><span><a href="#top">Back to top</a></span></footer>
+<script type="module">
+import { topbar, config, icon } from "./ui.mjs";
+const bar = topbar(config(new URLSearchParams()), "home");
+bar.querySelector(".topbar-right")?.remove();
+document.body.prepend(bar);
+for (const [id, name] of [["ico-split", "coins"], ["ico-scale", "scale"], ["ico-zap", "zap"]]) document.getElementById(id).append(icon(name));
+</script>
+</body>
+</html>
