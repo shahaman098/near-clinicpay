@@ -351,23 +351,55 @@ async fn insurer_adjudicates_then_both_pay_the_adjusted_amounts() -> anyhow::Res
     let inv = invoice(&env).await?;
     assert_eq!(inv["shares"][0]["amount"], (20 * USD).to_string());
     assert_eq!(inv["shares"][1]["amount"], (30 * USD).to_string());
-    assert_eq!(inv["shares"][1]["adjudication"]["original"], (40 * USD).to_string());
+    assert_eq!(
+        inv["shares"][1]["adjudication"]["original"],
+        (40 * USD).to_string()
+    );
 
     // Paying the old 40 is returned in full; 30 settles the insurer's share.
     let before = balance(&env.token, env.insurer.id().as_str()).await?;
-    let r = pay_ft(&env, &env.insurer, 40 * USD, json!({"invoice_id": "FT-1", "share_index": 1})).await?;
+    let r = pay_ft(
+        &env,
+        &env.insurer,
+        40 * USD,
+        json!({"invoice_id": "FT-1", "share_index": 1}),
+    )
+    .await?;
     assert!(r.is_success());
-    assert_eq!(balance(&env.token, env.insurer.id().as_str()).await?, before);
-    let r = pay_ft(&env, &env.insurer, 30 * USD, json!({"invoice_id": "FT-1", "share_index": 1})).await?;
+    assert_eq!(
+        balance(&env.token, env.insurer.id().as_str()).await?,
+        before
+    );
+    let r = pay_ft(
+        &env,
+        &env.insurer,
+        30 * USD,
+        json!({"invoice_id": "FT-1", "share_index": 1}),
+    )
+    .await?;
     assert!(r.is_success(), "{:?}", r.failures());
 
     fund(&env.token, &env.patient, 10 * USD).await?;
-    let r = pay_ft(&env, &env.patient, 20 * USD, json!({"invoice_id": "FT-1", "share_index": 0})).await?;
+    let r = pay_ft(
+        &env,
+        &env.patient,
+        20 * USD,
+        json!({"invoice_id": "FT-1", "share_index": 0}),
+    )
+    .await?;
     assert!(r.is_success(), "{:?}", r.failures());
 
     assert_eq!(status(&env).await?, "Paid");
-    assert_eq!(balance(&env.token, env.clinic.id().as_str()).await?, 50 * USD, "clinic still gets the full bill");
-    assert_eq!(balance(&env.token, env.insurer.id().as_str()).await?, 10 * USD, "insurer paid only what it approved");
+    assert_eq!(
+        balance(&env.token, env.clinic.id().as_str()).await?,
+        50 * USD,
+        "clinic still gets the full bill"
+    );
+    assert_eq!(
+        balance(&env.token, env.insurer.id().as_str()).await?,
+        10 * USD,
+        "insurer paid only what it approved"
+    );
     assert_eq!(balance(&env.token, env.pay.id().as_str()).await?, 0);
     Ok(())
 }

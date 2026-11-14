@@ -93,7 +93,10 @@ fn node(script: &str, args: &[&str], who: &str, account: &Account) -> anyhow::Re
         .arg(format!("relayer/{script}"))
         .args(args)
         .env(format!("{who}_ACCOUNT_ID"), account.id().as_str())
-        .env(format!("{who}_PRIVATE_KEY"), account.secret_key().to_string())
+        .env(
+            format!("{who}_PRIVATE_KEY"),
+            account.secret_key().to_string(),
+        )
         .output()?;
     anyhow::ensure!(
         out.status.success(),
@@ -302,7 +305,9 @@ async fn main() -> anyhow::Result<()> {
     for l in r.logs() {
         println!("   on-chain receipt: {l}");
     }
-    println!("9. insurer approved 30 of 40 tUSDC on chain; the other 10 moved to the patient's share");
+    println!(
+        "9. insurer approved 30 of 40 tUSDC on chain; the other 10 moved to the patient's share"
+    );
     for (who, share, amount) in [(&insurer, 1, 30 * USD), (&patient, 0, 20 * USD)] {
         who.call(token.id(), "ft_transfer_call")
             .args_json(json!({
@@ -341,19 +346,44 @@ async fn main() -> anyhow::Result<()> {
         .await?
         .into_result()?;
     fund(&token, &patient, 10 * USD).await?;
-    println!("11. clinic created INV-2026-0046 (60 tUSDC); relayer account: {}", relayer.id());
+    println!(
+        "11. clinic created INV-2026-0046 (60 tUSDC); relayer account: {}",
+        relayer.id()
+    );
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
     let near_before = patient.view_account().await?.balance;
     let signed = node(
         "payer.mjs",
-        &["pay", "--contract", contract.id().as_str(), "--rpc", rpc.as_str(), "--id", "INV-2026-0046", "--share", "0"],
+        &[
+            "pay",
+            "--contract",
+            contract.id().as_str(),
+            "--rpc",
+            rpc.as_str(),
+            "--id",
+            "INV-2026-0046",
+            "--share",
+            "0",
+        ],
         "PAYER",
         &patient,
     )?;
-    println!("12. patient signed a NEP-366 delegate action offline ({} bytes, base64)", signed.len());
+    println!(
+        "12. patient signed a NEP-366 delegate action offline ({} bytes, base64)",
+        signed.len()
+    );
     let out = node(
         "relayer.mjs",
-        &["submit", "--contract", contract.id().as_str(), "--token", token.id().as_str(), "--rpc", rpc.as_str(), &signed],
+        &[
+            "submit",
+            "--contract",
+            contract.id().as_str(),
+            "--token",
+            token.id().as_str(),
+            "--rpc",
+            rpc.as_str(),
+            &signed,
+        ],
         "RELAYER",
         &relayer,
     )?;

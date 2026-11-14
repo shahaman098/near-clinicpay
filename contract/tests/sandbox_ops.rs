@@ -21,7 +21,10 @@ fn node(script: &str, args: &[&str], who: &str, account: &Account) -> (i32, Stri
         .arg(script)
         .args(args)
         .env(format!("{who}_ACCOUNT_ID"), account.id().as_str())
-        .env(format!("{who}_PRIVATE_KEY"), account.secret_key().to_string())
+        .env(
+            format!("{who}_PRIVATE_KEY"),
+            account.secret_key().to_string(),
+        )
         .output()
         .expect("node failed to start");
     let stderr = String::from_utf8_lossy(&out.stderr);
@@ -51,9 +54,23 @@ async fn deploy_then_create_and_cancel_an_invoice_with_the_ops_tools() -> anyhow
     let (code, out) = node(
         "ops/clinic.mjs",
         &[
-            "create", "--contract", target.id().as_str(), "--rpc", &rpc, "--id", "OPS-1", "--memo", "GP visit",
-            "--line", "Consultation=2", "--line", "Blood panel=3",
-            "--share", "Patient co-pay=1", "--share", "Insurer=4",
+            "create",
+            "--contract",
+            target.id().as_str(),
+            "--rpc",
+            &rpc,
+            "--id",
+            "OPS-1",
+            "--memo",
+            "GP visit",
+            "--line",
+            "Consultation=2",
+            "--line",
+            "Blood panel=3",
+            "--share",
+            "Patient co-pay=1",
+            "--share",
+            "Insurer=4",
         ],
         "CLINIC",
         &clinic,
@@ -71,7 +88,15 @@ async fn deploy_then_create_and_cancel_an_invoice_with_the_ops_tools() -> anyhow
 
     let (code, out) = node(
         "ops/clinic.mjs",
-        &["cancel", "--contract", target.id().as_str(), "--rpc", &rpc, "--id", "OPS-1"],
+        &[
+            "cancel",
+            "--contract",
+            target.id().as_str(),
+            "--rpc",
+            &rpc,
+            "--id",
+            "OPS-1",
+        ],
         "CLINIC",
         &clinic,
     );
@@ -84,7 +109,12 @@ async fn deploy_then_create_and_cancel_an_invoice_with_the_ops_tools() -> anyhow
     assert_eq!(status, "Cancelled");
 
     // Upgrading the code without re-initialising keeps the state.
-    let (code, out) = node("ops/deploy.mjs", &["--rpc", &rpc, "--no-init"], "DEPLOY", &target);
+    let (code, out) = node(
+        "ops/deploy.mjs",
+        &["--rpc", &rpc, "--no-init"],
+        "DEPLOY",
+        &target,
+    );
     assert_eq!(code, 0, "{out}");
     let inv: Value = worker
         .view(target.id(), "get_invoice")
@@ -96,7 +126,15 @@ async fn deploy_then_create_and_cancel_an_invoice_with_the_ops_tools() -> anyhow
     // A clinic error comes back with the contract's own message.
     let (code, out) = node(
         "ops/clinic.mjs",
-        &["cancel", "--contract", target.id().as_str(), "--rpc", &rpc, "--id", "OPS-1"],
+        &[
+            "cancel",
+            "--contract",
+            target.id().as_str(),
+            "--rpc",
+            &rpc,
+            "--id",
+            "OPS-1",
+        ],
         "CLINIC",
         &clinic,
     );

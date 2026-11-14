@@ -17,7 +17,14 @@ const USD: u128 = 1_000_000;
 
 fn build(manifest: &str, wasm: &str) -> Vec<u8> {
     let status = Command::new("cargo")
-        .args(["build", "--manifest-path", manifest, "--target", "wasm32-unknown-unknown", "--release"])
+        .args([
+            "build",
+            "--manifest-path",
+            manifest,
+            "--target",
+            "wasm32-unknown-unknown",
+            "--release",
+        ])
         .status()
         .expect("cargo build failed to start");
     assert!(status.success(), "wasm build failed for {manifest}");
@@ -37,7 +44,10 @@ struct Env {
 async fn setup() -> anyhow::Result<Env> {
     let worker = near_workspaces::sandbox().await?;
     let pay = worker
-        .dev_deploy(&build("Cargo.toml", "target/wasm32-unknown-unknown/release/clinicpay.wasm"))
+        .dev_deploy(&build(
+            "Cargo.toml",
+            "target/wasm32-unknown-unknown/release/clinicpay.wasm",
+        ))
         .await?;
     pay.call("new").transact().await?.into_result()?;
     let token = worker
@@ -75,7 +85,10 @@ async fn setup() -> anyhow::Result<Env> {
         .await?
         .into_result()?;
 
-    for (id, tok, unit) in [("G-NEAR", None, NEAR), ("G-USDC", Some(token.id().to_string()), USD)] {
+    for (id, tok, unit) in [
+        ("G-NEAR", None, NEAR),
+        ("G-USDC", Some(token.id().to_string()), USD),
+    ] {
         clinic
             .call(pay.id(), "create_invoice")
             .args_json(json!({
@@ -91,7 +104,15 @@ async fn setup() -> anyhow::Result<Env> {
             .await?
             .into_result()?;
     }
-    Ok(Env { worker, pay, token, clinic, patient, insurer, relayer })
+    Ok(Env {
+        worker,
+        pay,
+        token,
+        clinic,
+        patient,
+        insurer,
+        relayer,
+    })
 }
 
 /// Run a relayer/*.mjs script from the repo root with the given key in the environment.
@@ -101,20 +122,32 @@ fn node(script: &str, args: &[&str], who: &str, account: &Account) -> (i32, Stri
         .arg(format!("relayer/{script}"))
         .args(args)
         .env(format!("{who}_ACCOUNT_ID"), account.id().as_str())
-        .env(format!("{who}_PRIVATE_KEY"), account.secret_key().to_string())
+        .env(
+            format!("{who}_PRIVATE_KEY"),
+            account.secret_key().to_string(),
+        )
         .output()
         .expect("node failed to start");
     let stderr = String::from_utf8_lossy(&out.stderr);
     if !stderr.is_empty() {
         eprintln!("{script} stderr: {stderr}");
     }
-    (out.status.code().unwrap_or(-1), String::from_utf8_lossy(&out.stdout).trim().to_string())
+    (
+        out.status.code().unwrap_or(-1),
+        String::from_utf8_lossy(&out.stdout).trim().to_string(),
+    )
 }
 
 fn sign(env: &Env, payer: &Account, extra: &[&str]) -> String {
     let rpc = env.worker.rpc_addr();
     // extra[0] is the subcommand (pay | adjudicate) and must come first.
-    let mut args = vec![extra[0], "--contract", env.pay.id().as_str(), "--rpc", rpc.as_str()];
+    let mut args = vec![
+        extra[0],
+        "--contract",
+        env.pay.id().as_str(),
+        "--rpc",
+        rpc.as_str(),
+    ];
     args.extend_from_slice(&extra[1..]);
     let (code, out) = node("payer.mjs", &args, "PAYER", payer);
     assert_eq!(code, 0, "payer.mjs failed: {out}");
@@ -125,11 +158,23 @@ fn submit(env: &Env, signed: &str) -> (i32, Value) {
     let rpc = env.worker.rpc_addr();
     let (code, out) = node(
         "relayer.mjs",
-        &["submit", "--contract", env.pay.id().as_str(), "--token", env.token.id().as_str(), "--rpc", rpc.as_str(), signed],
+        &[
+            "submit",
+            "--contract",
+            env.pay.id().as_str(),
+            "--token",
+            env.token.id().as_str(),
+            "--rpc",
+            rpc.as_str(),
+            signed,
+        ],
         "RELAYER",
         &env.relayer,
     );
-    (code, serde_json::from_str(&out).unwrap_or_else(|_| panic!("relayer printed non-JSON: {out}")))
+    (
+        code,
+        serde_json::from_str(&out).unwrap_or_else(|_| panic!("relayer printed non-JSON: {out}")),
+    )
 }
 
 /// Gas refunds and forwarded transfers land a block or two after a transaction
@@ -154,12 +199,22 @@ async fn near_of(a: &Account) -> anyhow::Result<u128> {
 }
 
 async fn usd_of(env: &Env, who: &str) -> anyhow::Result<u128> {
-    let v: String = env.token.view("ft_balance_of").args_json(json!({"account_id": who})).await?.json()?;
+    let v: String = env
+        .token
+        .view("ft_balance_of")
+        .args_json(json!({"account_id": who}))
+        .await?
+        .json()?;
     Ok(v.parse()?)
 }
 
 async fn share_state(env: &Env, id: &str, i: usize) -> anyhow::Result<String> {
-    let v: Value = env.pay.view("get_invoice").args_json(json!({"invoice_id": id})).await?.json()?;
+    let v: Value = env
+        .pay
+        .view("get_invoice")
+        .args_json(json!({"invoice_id": id}))
+        .await?
+        .json()?;
     Ok(v["shares"][i]["state"].as_str().unwrap().to_string())
 }
 
@@ -169,22 +224,51 @@ async fn gasless_stablecoin_payment_costs_the_payer_no_near() -> anyhow::Result<
     settle().await;
     let (p0, r0) = (near_of(&env.patient).await?, near_of(&env.relayer).await?);
 
-    let signed = sign(&env, &env.patient, &["pay", "--id", "G-USDC", "--share", "0"]);
+    let signed = sign(
+        &env,
+        &env.patient,
+        &["pay", "--id", "G-USDC", "--share", "0"],
+    );
     let (code, r) = submit(&env, &signed);
     assert_eq!(code, 0, "{r}");
     assert_eq!(r["ok"], true);
-    assert!(r["logs"].as_array().unwrap().iter().any(|l| l.as_str().unwrap().contains("share_paid")));
+    assert!(r["logs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|l| l.as_str().unwrap().contains("share_paid")));
     assert_eq!(share_state(&env, "G-USDC", 0).await?, "Paid");
 
     // The named-payer rule still holds: the contract saw the patient, not the relayer.
-    let v: Value = env.pay.view("get_invoice").args_json(json!({"invoice_id": "G-USDC"})).await?.json()?;
+    let v: Value = env
+        .pay
+        .view("get_invoice")
+        .args_json(json!({"invoice_id": "G-USDC"}))
+        .await?
+        .json()?;
     assert_eq!(v["shares"][0]["paid_by"], env.patient.id().as_str());
 
     settle().await;
-    assert_eq!(near_of(&env.patient).await?, p0, "payer spent no NEAR at all");
-    assert_eq!(usd_of(&env, env.patient.id().as_str()).await?, 9 * USD, "payer spent exactly the 1 tUSDC share");
-    assert_eq!(usd_of(&env, env.clinic.id().as_str()).await?, USD, "clinic received exactly the share");
-    assert_eq!(usd_of(&env, env.pay.id().as_str()).await?, 0, "ClinicPay holds nothing");
+    assert_eq!(
+        near_of(&env.patient).await?,
+        p0,
+        "payer spent no NEAR at all"
+    );
+    assert_eq!(
+        usd_of(&env, env.patient.id().as_str()).await?,
+        9 * USD,
+        "payer spent exactly the 1 tUSDC share"
+    );
+    assert_eq!(
+        usd_of(&env, env.clinic.id().as_str()).await?,
+        USD,
+        "clinic received exactly the share"
+    );
+    assert_eq!(
+        usd_of(&env, env.pay.id().as_str()).await?,
+        0,
+        "ClinicPay holds nothing"
+    );
     assert!(near_of(&env.relayer).await? < r0, "relayer paid the gas");
     Ok(())
 }
@@ -192,7 +276,11 @@ async fn gasless_stablecoin_payment_costs_the_payer_no_near() -> anyhow::Result<
 #[tokio::test]
 async fn relayer_refuses_an_adjudication_the_contract_would_reject() -> anyhow::Result<()> {
     let env = setup().await?;
-    let signed = sign(&env, &env.patient, &["pay", "--id", "G-USDC", "--share", "0"]);
+    let signed = sign(
+        &env,
+        &env.patient,
+        &["pay", "--id", "G-USDC", "--share", "0"],
+    );
     let (code, r) = submit(&env, &signed);
     assert_eq!(code, 0, "{r}");
     settle().await;
@@ -204,15 +292,38 @@ async fn relayer_refuses_an_adjudication_the_contract_would_reject() -> anyhow::
     let signed = sign(
         &env,
         &env.insurer,
-        &["adjudicate", "--id", "G-USDC", "--share", "1", "--approved", &approved, "--reason", "CO-45 fee schedule", "--move-to", "0"],
+        &[
+            "adjudicate",
+            "--id",
+            "G-USDC",
+            "--share",
+            "1",
+            "--approved",
+            &approved,
+            "--reason",
+            "CO-45 fee schedule",
+            "--move-to",
+            "0",
+        ],
     );
     let (code, r) = submit(&env, &signed);
     assert_eq!(code, 3, "{r}");
-    assert!(r["error"].as_str().unwrap().contains("move_to share must be open"), "{r}");
+    assert!(
+        r["error"]
+            .as_str()
+            .unwrap()
+            .contains("move_to share must be open"),
+        "{r}"
+    );
     settle().await;
     assert_eq!(near_of(&env.insurer).await?, i0, "insurer spent nothing");
     assert_eq!(near_of(&env.relayer).await?, r0, "relayer spent nothing");
-    let v: Value = env.pay.view("get_invoice").args_json(json!({"invoice_id": "G-USDC"})).await?.json()?;
+    let v: Value = env
+        .pay
+        .view("get_invoice")
+        .args_json(json!({"invoice_id": "G-USDC"}))
+        .await?
+        .json()?;
     assert!(v["shares"][1]["adjudication"].is_null());
     Ok(())
 }
@@ -224,14 +335,30 @@ async fn http_relayer_serves_a_gasless_payment() -> anyhow::Result<()> {
     let rpc = env.worker.rpc_addr();
     let mut child = Command::new("node")
         .current_dir("..")
-        .args(["relayer/relayer.mjs", "serve", "--contract", env.pay.id().as_str(), "--token", env.token.id().as_str(), "--rpc", rpc.as_str(), "--port", "0"])
+        .args([
+            "relayer/relayer.mjs",
+            "serve",
+            "--contract",
+            env.pay.id().as_str(),
+            "--token",
+            env.token.id().as_str(),
+            "--rpc",
+            rpc.as_str(),
+            "--port",
+            "0",
+        ])
         .env("RELAYER_ACCOUNT_ID", env.relayer.id().as_str())
         .env("RELAYER_PRIVATE_KEY", env.relayer.secret_key().to_string())
         .stderr(std::process::Stdio::piped())
         .spawn()?;
     let mut line = String::new();
     BufReader::new(child.stderr.take().unwrap()).read_line(&mut line)?;
-    let port = line.trim().split("listening on port ").nth(1).and_then(|r| r.split(' ').next()).map(str::to_string);
+    let port = line
+        .trim()
+        .split("listening on port ")
+        .nth(1)
+        .and_then(|r| r.split(' ').next())
+        .map(str::to_string);
     let result = async {
         let port = port.ok_or_else(|| anyhow::anyhow!("relayer did not start: {line}"))?;
         settle().await;
@@ -239,7 +366,19 @@ async fn http_relayer_serves_a_gasless_payment() -> anyhow::Result<()> {
         let url = format!("http://127.0.0.1:{port}");
         let (code, out) = node(
             "payer.mjs",
-            &["pay", "--contract", env.pay.id().as_str(), "--rpc", rpc.as_str(), "--id", "G-USDC", "--share", "0", "--relayer", &url],
+            &[
+                "pay",
+                "--contract",
+                env.pay.id().as_str(),
+                "--rpc",
+                rpc.as_str(),
+                "--id",
+                "G-USDC",
+                "--share",
+                "0",
+                "--relayer",
+                &url,
+            ],
             "PAYER",
             &env.patient,
         );
@@ -266,13 +405,33 @@ async fn insurer_adjudicates_gaslessly_before_anyone_pays() -> anyhow::Result<()
     let signed = sign(
         &env,
         &env.insurer,
-        &["adjudicate", "--id", "G-NEAR", "--share", "1", "--approved", &approved, "--reason", "CO-45 fee schedule", "--move-to", "0"],
+        &[
+            "adjudicate",
+            "--id",
+            "G-NEAR",
+            "--share",
+            "1",
+            "--approved",
+            &approved,
+            "--reason",
+            "CO-45 fee schedule",
+            "--move-to",
+            "0",
+        ],
     );
     let (code, r) = submit(&env, &signed);
     assert_eq!(code, 0, "{r}");
-    let v: Value = env.pay.view("get_invoice").args_json(json!({"invoice_id": "G-NEAR"})).await?.json()?;
+    let v: Value = env
+        .pay
+        .view("get_invoice")
+        .args_json(json!({"invoice_id": "G-NEAR"}))
+        .await?
+        .json()?;
     assert_eq!(v["shares"][0]["amount"], (2 * NEAR).to_string());
-    assert_eq!(v["shares"][1]["adjudication"]["reason"], "CO-45 fee schedule");
+    assert_eq!(
+        v["shares"][1]["adjudication"]["reason"],
+        "CO-45 fee schedule"
+    );
     settle().await;
     assert_eq!(near_of(&env.insurer).await?, i0, "insurer spent nothing");
     Ok(())
@@ -287,7 +446,17 @@ async fn relayer_refuses_calls_it_should_not_pay_for() -> anyhow::Result<()> {
     let rpc = env.worker.rpc_addr();
     let (code, _) = node(
         "payer.mjs",
-        &["pay", "--contract", env.pay.id().as_str(), "--rpc", rpc.as_str(), "--id", "G-NEAR", "--share", "0"],
+        &[
+            "pay",
+            "--contract",
+            env.pay.id().as_str(),
+            "--rpc",
+            rpc.as_str(),
+            "--id",
+            "G-NEAR",
+            "--share",
+            "0",
+        ],
         "PAYER",
         &env.patient,
     );
@@ -311,29 +480,51 @@ async fn relayer_refuses_calls_it_should_not_pay_for() -> anyhow::Result<()> {
     assert!(r["error"].as_str().unwrap().contains("named payer"), "{r}");
 
     // The insurer holds no tUSDC, so its payment would fail inside the token: refused.
-    let signed = sign(&env, &env.insurer, &["pay", "--id", "G-USDC", "--share", "1"]);
+    let signed = sign(
+        &env,
+        &env.insurer,
+        &["pay", "--id", "G-USDC", "--share", "1"],
+    );
     let (code, r) = submit(&env, &signed);
     assert_eq!(code, 3, "{r}");
-    assert!(r["error"].as_str().unwrap().contains("enough of the token"), "{r}");
+    assert!(
+        r["error"].as_str().unwrap().contains("enough of the token"),
+        "{r}"
+    );
 
     // Garbage is refused outright.
     let (code, r) = submit(&env, "bm90IGEgZGVsZWdhdGU=");
     assert_eq!(code, 3, "{r}");
     settle().await;
-    assert_eq!(near_of(&env.relayer).await?, r0, "refusals cost the relayer nothing");
+    assert_eq!(
+        near_of(&env.relayer).await?,
+        r0,
+        "refusals cost the relayer nothing"
+    );
 
     // Resubmitting the same signed delegate is refused by the relayer (the share is
     // already paid), so it cannot pay twice. Its nonce is also spent, so the chain
     // would reject it too.
-    let signed = sign(&env, &env.patient, &["pay", "--id", "G-USDC", "--share", "0"]);
+    let signed = sign(
+        &env,
+        &env.patient,
+        &["pay", "--id", "G-USDC", "--share", "0"],
+    );
     let (code, r) = submit(&env, &signed);
     assert_eq!(code, 0, "{r}");
     let after_first = usd_of(&env, env.patient.id().as_str()).await?;
     let (code, r) = submit(&env, &signed);
     assert_eq!(code, 3, "replay must be refused: {r}");
     assert_eq!(r["refused"], true);
-    assert!(r["error"].as_str().unwrap().contains("share is Paid"), "{r}");
-    assert_eq!(usd_of(&env, env.patient.id().as_str()).await?, after_first, "a replay moves no money");
+    assert!(
+        r["error"].as_str().unwrap().contains("share is Paid"),
+        "{r}"
+    );
+    assert_eq!(
+        usd_of(&env, env.patient.id().as_str()).await?,
+        after_first,
+        "a replay moves no money"
+    );
     Ok(())
 }
 
@@ -343,7 +534,17 @@ fn sign_as_other(env: &Env, payer: &Account, id: &str, share: u32) -> String {
     let rpc = env.worker.rpc_addr();
     let (code, out) = node(
         "payer.mjs",
-        &["pay", "--contract", env.pay.id().as_str(), "--rpc", rpc.as_str(), "--id", id, "--share", &share.to_string()],
+        &[
+            "pay",
+            "--contract",
+            env.pay.id().as_str(),
+            "--rpc",
+            rpc.as_str(),
+            "--id",
+            id,
+            "--share",
+            &share.to_string(),
+        ],
         "PAYER",
         payer,
     );

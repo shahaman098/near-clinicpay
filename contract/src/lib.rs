@@ -355,7 +355,10 @@ impl ClinicPay {
         require!(share.state == ShareState::Open, "share is not open");
         require!(share.adjudication.is_none(), "share already adjudicated");
         let original = share.amount.0;
-        require!(approved.0 <= original, "approved amount cannot exceed the share");
+        require!(
+            approved.0 <= original,
+            "approved amount cannot exceed the share"
+        );
         let residual = original - approved.0;
         let total_before: u128 = invoice.shares.iter().map(|s| s.amount.0).sum();
 
@@ -370,7 +373,13 @@ impl ClinicPay {
                 target.state == ShareState::Open && target.adjudication.is_none(),
                 "move_to share must be open and not adjudicated"
             );
-            target.amount = U128(target.amount.0.checked_add(residual).expect("amount overflow"));
+            target.amount = U128(
+                target
+                    .amount
+                    .0
+                    .checked_add(residual)
+                    .expect("amount overflow"),
+            );
             Some(to)
         } else {
             None
@@ -389,7 +398,10 @@ impl ClinicPay {
             at_ms: now_ms(),
         });
         let total_after: u128 = invoice.shares.iter().map(|s| s.amount.0).sum();
-        require!(total_after == total_before, "shares must still add up to the bill");
+        require!(
+            total_after == total_before,
+            "shares must still add up to the bill"
+        );
 
         emit(
             "share_adjudicated",
@@ -400,7 +412,9 @@ impl ClinicPay {
                 caller,
                 original,
                 approved.0,
-                moved_to.map(|t| t.to_string()).unwrap_or_else(|| "null".into()),
+                moved_to
+                    .map(|t| t.to_string())
+                    .unwrap_or_else(|| "null".into()),
                 residual,
                 esc(&reason)
             ),
@@ -1237,7 +1251,13 @@ mod tests {
     fn insurer_full_denial_marks_share_denied() {
         let mut c = setup();
         ctx(accounts(3), 0);
-        let inv = c.adjudicate_share("INV-1".into(), 1, U128(0), "CO-50 not covered".into(), Some(0));
+        let inv = c.adjudicate_share(
+            "INV-1".into(),
+            1,
+            U128(0),
+            "CO-50 not covered".into(),
+            Some(0),
+        );
         assert_eq!(inv.shares[1].state, ShareState::Denied);
         assert_eq!(inv.shares[1].amount, U128(0));
         assert_eq!(inv.shares[0].amount, U128(5 * NEAR));
@@ -1322,12 +1342,149 @@ mod tests {
         ctx(accounts(1), 0);
         let mut c = ClinicPay::new();
         let shares = vec![
-            ShareInput { label: "a".into(), payer: None, amount: U128(NEAR) },
-            ShareInput { label: "b".into(), payer: None, amount: U128(4 * NEAR) },
+            ShareInput {
+                label: "a".into(),
+                payer: None,
+                amount: U128(NEAR),
+            },
+            ShareInput {
+                label: "b".into(),
+                payer: None,
+                amount: U128(4 * NEAR),
+            },
         ];
         c.create_invoice("INV-9".into(), "".into(), lines(), shares, None, None);
         ctx(accounts(3), 0);
         c.adjudicate_share("INV-9".into(), 1, U128(NEAR), "x".into(), Some(0));
+    }
+
+    /// Seeded random walk over adjudicate/pay/refund/cancel. Every operation is
+    /// preconditioned, so the contract must never panic; after each step the shares
+    /// must still sum to the lines, and the status must agree with the share states.
+    #[test]
+    fn random_operation_sequences_keep_the_invariants() {
+        fn next(seed: &mut u64) -> u64 {
+            *seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            *seed >> 33
+        }
+        let mut seed = 42u64;
+        let mut c = ClinicPay::new();
+        ctx(accounts(1), 0);
+        let shares = vec![
+            ShareInput {
+                label: "Patient".into(),
+                payer: Some(accounts(2)),
+                amount: U128(NEAR),
+            },
+            ShareInput {
+                label: "Insurer".into(),
+                payer: Some(accounts(3)),
+                amount: U128(4 * NEAR),
+            },
+            ShareInput {
+                label: "Employer".into(),
+                payer: Some(accounts(4)),
+                amount: U128(2 * NEAR),
+            },
+        ];
+        let extra = Line {
+            description: "Employer scheme".into(),
+            amount: U128(2 * NEAR),
+        };
+        let mut all_lines = lines();
+        all_lines.push(extra);
+        let lines_total: u128 = all_lines.iter().map(|l| l.amount.0).sum();
+        c.create_invoice("RND".into(), "".into(), all_lines, shares, None, None);
+
+        for _ in 0..300 {
+            let inv = c.get_invoice("RND".into()).unwrap();
+            if inv.cancelled {
+                break;
+            }
+            let open: Vec<usize> = (0..inv.shares.len())
+                .filter(|&i| inv.shares[i].state == ShareState::Open)
+                .collect();
+            let paid: Vec<usize> = (0..inv.shares.len())
+                .filter(|&i| inv.shares[i].state == ShareState::Paid)
+                .collect();
+            match next(&mut seed) % 4 {
+                0 if !open.is_empty() => {
+                    let i = open[(next(&mut seed) as usize) % open.len()];
+                    let s = &inv.shares[i];
+                    let who = s.payer.clone().unwrap_or_else(|| accounts(5));
+                    ctx(who, s.amount.0);
+                    let _ = c.pay_share("RND".into(), i as u32);
+                }
+                1 if !paid.is_empty() => {
+                    let i = paid[(next(&mut seed) as usize) % paid.len()];
+                    let amount = inv.shares[i].amount.0;
+                    ctx(accounts(1), amount);
+                    let _ = c.refund_share("RND".into(), i as u32);
+                }
+                2 => {
+                    // The insurer reduces its share and moves the rest to another open share.
+                    if inv.shares[1].state == ShareState::Open
+                        && inv.shares[1].adjudication.is_none()
+                    {
+                        let original = inv.shares[1].amount.0;
+                        let approved = (next(&mut seed)
+                            % (original as u64 / 1_000_000_000_000_000_000 + 1))
+                            as u128
+                            * 1_000_000_000_000_000_000;
+                        let targets: Vec<usize> =
+                            open.iter().copied().filter(|&i| i != 1).collect();
+                        if approved < original && targets.is_empty() {
+                            continue;
+                        }
+                        let target = if approved < original {
+                            Some(targets[(next(&mut seed) as usize) % targets.len()] as u32)
+                        } else {
+                            None
+                        };
+                        ctx(accounts(3), 0);
+                        c.adjudicate_share(
+                            "RND".into(),
+                            1,
+                            U128(approved),
+                            format!("CO-45 run"),
+                            target,
+                        );
+                    }
+                }
+                _ => {
+                    if inv
+                        .shares
+                        .iter()
+                        .all(|s| matches!(s.state, ShareState::Open | ShareState::Denied))
+                    {
+                        ctx(accounts(1), 0);
+                        c.cancel_invoice("RND".into());
+                    }
+                }
+            }
+
+            let inv = c.get_invoice("RND".into()).unwrap();
+            let total: u128 = inv.shares.iter().map(|s| s.amount.0).sum();
+            assert_eq!(total, lines_total, "shares must always sum to the lines");
+            let open = inv
+                .shares
+                .iter()
+                .filter(|s| s.state == ShareState::Open)
+                .count();
+            let status = c.get_status("RND".into()).unwrap();
+            match status {
+                Status::Paid | Status::Refunded => {
+                    assert_eq!(open, 0, "{status:?} with an open share")
+                }
+                Status::Cancelled => assert!(inv.cancelled),
+                _ => assert!(
+                    open > 0 || inv.shares.iter().all(|s| s.state == ShareState::Denied),
+                    "{status:?} with no open share"
+                ),
+            }
+        }
     }
 
     #[test]

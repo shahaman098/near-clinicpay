@@ -74,7 +74,7 @@ function opts(argv) {
   return { ...values, tokens: values.token ?? [], positionals };
 }
 
-function serve(o, relayer) {
+function serve(o, relayer, budget) {
   // One relay at a time: each transaction takes the relayer key's next nonce, so
   // concurrent requests would otherwise collide and one of them would fail.
   let queue = Promise.resolve();
@@ -107,7 +107,7 @@ async function main(argv) {
   const o = opts(rest);
   const relayer = loadRelayer();
   const budget = budgetFromEnv();
-  if (cmd === "serve") return serve(o, relayer);
+  if (cmd === "serve") return serve(o, relayer, budget);
   if (cmd === "submit") {
     if (!o.positionals[0]) throw new Error("submit needs the base64 signed delegate");
     try {
