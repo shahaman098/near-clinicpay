@@ -10,7 +10,8 @@
 //   * <listed token>.ft_transfer_call with receiver_id = ClinicPay and 1 yoctoNEAR
 //     (stablecoin invoices)
 // and, before spending gas, the target share must be open, payable by this sender,
-// and the amount must match it exactly, so doomed calls cannot drain the relayer.
+// and the amount must match it exactly; adjudications must pass the contract's own
+// rules; token payments need the sender's balance and both registrations on the token.
 
 export const MAX_GAS = 150n * 10n ** 12n; // 150 Tgas
 export const MAX_BLOCKS_AHEAD = 1000n; // a delegate may be valid for at most ~15 minutes
@@ -85,4 +86,14 @@ export function checkInvoice(intent, sender, invoice) {
   }
   if (intent.kind === "pay_token" && invoice.token !== intent.token) refuse("invoice is not priced in this token");
   if (BigInt(share.amount) !== intent.amount) refuse("amount does not match the share");
+}
+
+/** Token payments: the sender must hold the amount, and ClinicPay and the clinic must
+ *  both be registered on the token, or the transfer or the forward would fail after
+ *  the relayer had already paid the gas. */
+export function checkToken(intent, { senderBalance, contractRegistered, clinicRegistered }) {
+  if (intent.kind !== "pay_token") return;
+  if (BigInt(senderBalance ?? "0") < intent.amount) refuse("sender does not hold enough of the token");
+  if (!contractRegistered) refuse("ClinicPay is not registered on the token (storage_deposit)");
+  if (!clinicRegistered) refuse("the clinic is not registered on the token (storage_deposit)");
 }

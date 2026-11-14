@@ -299,6 +299,12 @@ async fn relayer_refuses_calls_it_should_not_pay_for() -> anyhow::Result<()> {
     assert_eq!(code, 3, "{r}");
     assert!(r["error"].as_str().unwrap().contains("named payer"), "{r}");
 
+    // The insurer holds no tUSDC, so its payment would fail inside the token: refused.
+    let signed = sign(&env, &env.insurer, &["pay", "--id", "G-USDC", "--share", "1"]);
+    let (code, r) = submit(&env, &signed);
+    assert_eq!(code, 3, "{r}");
+    assert!(r["error"].as_str().unwrap().contains("enough of the token"), "{r}");
+
     // Garbage is refused outright.
     let (code, r) = submit(&env, "bm90IGEgZGVsZWdhdGU=");
     assert_eq!(code, 3, "{r}");

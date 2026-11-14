@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import {
   accessKey, decodeSignedDelegate, latestBlock, outcomeSummary, parseSecretKey, sendTx, signTransaction, viewCall,
 } from "./near.mjs";
-import { Refused, checkInvoice, checkShape } from "./policy.mjs";
+import { Refused, checkInvoice, checkShape, checkToken } from "./policy.mjs";
 
 const DEFAULT_RPC = "https://rpc.testnet.near.org";
 
@@ -34,6 +34,14 @@ export async function relay(b64, { rpc, contract, tokens, relayer }) {
   const intent = checkShape(d, { contract, tokens, height: block.height });
   const invoice = await viewCall(rpc, contract, "get_invoice", { invoice_id: intent.invoice_id });
   checkInvoice(intent, d.sender_id, invoice);
+  if (intent.kind === "pay_token") {
+    const [senderBalance, contractReg, clinicReg] = await Promise.all([
+      viewCall(rpc, intent.token, "ft_balance_of", { account_id: d.sender_id }),
+      viewCall(rpc, intent.token, "storage_balance_of", { account_id: contract }),
+      viewCall(rpc, intent.token, "storage_balance_of", { account_id: invoice.payee }),
+    ]);
+    checkToken(intent, { senderBalance, contractRegistered: contractReg !== null, clinicRegistered: clinicReg !== null });
+  }
 
   const key = await accessKey(rpc, relayer.accountId, relayer.signer.publicKey);
   const signedDelegateBytes = Buffer.from(String(b64), "base64");

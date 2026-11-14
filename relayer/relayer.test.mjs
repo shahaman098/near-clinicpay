@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { b58decode, b58encode, decodeSignedDelegate, encodeTransaction, parseSecretKey, signDelegate } from "./near.mjs";
-import { Refused, checkInvoice, checkShape } from "./policy.mjs";
+import { Refused, checkInvoice, checkShape, checkToken } from "./policy.mjs";
 import { payAction } from "./payer.mjs";
 
 const TGAS = 10n ** 12n;
@@ -129,6 +129,16 @@ test("adjudication checks mirror the contract, so rejected decisions cost no gas
   refused(() => checkShape(bad({ reason: " " }), ctx), /reason/);
   refused(() => checkShape(bad({ reason: "x".repeat(201) }), ctx), /reason/);
   refused(() => checkShape(bad({ approved: "abc" }), ctx), /approved/);
+});
+
+test("token payments need the sender's balance and both registrations", () => {
+  const intent = { kind: "pay_token", token: TOKEN, invoice_id: "INV-1", share_index: 0, amount: 10n };
+  const ok = { senderBalance: "10", contractRegistered: true, clinicRegistered: true };
+  checkToken(intent, ok);
+  refused(() => checkToken(intent, { ...ok, senderBalance: "9" }), /enough of the token/);
+  refused(() => checkToken(intent, { ...ok, contractRegistered: false }), /ClinicPay is not registered/);
+  refused(() => checkToken(intent, { ...ok, clinicRegistered: false }), /clinic is not registered/);
+  checkToken({ kind: "adjudicate" }, {}); // not a token payment: nothing to check
 });
 
 test("payer builds ft_transfer_call for token invoices and refuses NEAR ones", () => {

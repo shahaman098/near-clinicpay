@@ -216,9 +216,12 @@ What the relayer pays for (`relayer/policy.mjs`), one function call per delegate
 with `receiver_id` = ClinicPay, 1 yoctoNEAR, a ClinicPay payment `msg`, ≤150 Tgas and a
 delegate valid for ≤1000 blocks. Before building a transaction it reads the invoice and
 refuses unless the share is open, the sender is its named payer (if any), and the
-amount matches exactly; for `adjudicate_share` it applies the contract's rules
-(approved ≤ billed, a valid open `move_to`, not adjudicated before). Calls that would
-fail on chain are refused before the relayer spends gas.
+amount matches exactly. For a token payment it also checks that the sender holds the
+amount and that ClinicPay and the clinic are both registered on the token. For
+`adjudicate_share` it applies the contract's rules (approved ≤ billed, a valid open
+`move_to`, not adjudicated before). Those are the failure causes it checks before it
+spends gas; a state change between its check and execution (another payment landing
+first) can still make a relayed call fail, at the relayer's gas cost.
 
 Found while testing, and why NEAR invoices are not relayed: under NEP-366 the
 **relayer** funds any deposit attached inside the delegate, not the signer. A relayed
