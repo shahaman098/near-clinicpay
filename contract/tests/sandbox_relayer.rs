@@ -138,8 +138,19 @@ async fn settle() {
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 }
 
+/// NEAR balance once it has stopped moving: two reads a second apart must agree, so a
+/// late gas refund on a slow machine cannot make an exact comparison flaky.
 async fn near_of(a: &Account) -> anyhow::Result<u128> {
-    Ok(a.view_account().await?.balance.as_yoctonear())
+    let mut last = a.view_account().await?.balance.as_yoctonear();
+    for _ in 0..15 {
+        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+        let now = a.view_account().await?.balance.as_yoctonear();
+        if now == last {
+            return Ok(now);
+        }
+        last = now;
+    }
+    anyhow::bail!("balance of {} did not settle", a.id())
 }
 
 async fn usd_of(env: &Env, who: &str) -> anyhow::Result<u128> {
