@@ -108,6 +108,29 @@ test("live invoice checks stop calls that would fail on chain", () => {
   refused(() => checkInvoice(pay(0), "patient.testnet", { ...inv, cancelled: true }), /cancelled/);
 });
 
+test("adjudication checks mirror the contract, so rejected decisions cost no gas", () => {
+  const inv = { id: "INV-1", token: TOKEN, cancelled: false, shares: [
+    { payer: "patient.testnet", amount: "10", state: "Open" },
+    { payer: "insurer.testnet", amount: "40", state: "Open" },
+    { payer: null, amount: "5", state: "Paid" },
+  ] };
+  const adj = (approved, move_to = 0, share_index = 1) => ({ kind: "adjudicate", invoice_id: "INV-1", share_index, approved, move_to });
+  checkInvoice(adj(30n), "insurer.testnet", inv);
+  checkInvoice(adj(40n, null), "insurer.testnet", inv);
+  refused(() => checkInvoice(adj(30n), "patient.testnet", inv), /named payer/);
+  refused(() => checkInvoice(adj(41n), "insurer.testnet", inv), /cannot exceed/);
+  refused(() => checkInvoice(adj(30n, null), "insurer.testnet", inv), /move_to is required/);
+  refused(() => checkInvoice(adj(30n, 1), "insurer.testnet", inv), /another share/);
+  refused(() => checkInvoice(adj(30n, 9), "insurer.testnet", inv), /no such move_to/);
+  refused(() => checkInvoice(adj(30n, 2), "insurer.testnet", inv), /must be open/);
+  const done = structuredClone(inv); done.shares[1].adjudication = { original: "40" };
+  refused(() => checkInvoice(adj(30n), "insurer.testnet", done), /already adjudicated/);
+  const bad = (args) => delegate(CONTRACT, { type: "FunctionCall", method_name: "adjudicate_share", gas: 30n * TGAS, deposit: 0n, args: { invoice_id: "INV-1", share_index: 1, approved: "1", reason: "CO-45", move_to: 0, ...args } });
+  refused(() => checkShape(bad({ reason: " " }), ctx), /reason/);
+  refused(() => checkShape(bad({ reason: "x".repeat(201) }), ctx), /reason/);
+  refused(() => checkShape(bad({ approved: "abc" }), ctx), /approved/);
+});
+
 test("payer builds ft_transfer_call for token invoices and refuses NEAR ones", () => {
   const inv = { id: "INV-1", token: TOKEN, shares: [{ amount: "10000000", state: "Open" }] };
   const c = payAction(CONTRACT, inv, 0);

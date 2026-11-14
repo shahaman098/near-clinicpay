@@ -37,7 +37,12 @@ export function checkShape(d, { contract, tokens, height }) {
     }
     if (a.method_name === "adjudicate_share") {
       if (a.deposit !== 0n) refuse("adjudicate_share takes no deposit");
-      return { kind: "adjudicate", invoice_id: a.args.invoice_id, share_index: a.args.share_index };
+      let approved;
+      try { approved = BigInt(a.args.approved); } catch { refuse("bad approved amount"); }
+      const reason = a.args.reason;
+      if (typeof reason !== "string" || !reason.trim() || Buffer.byteLength(reason) > 200) refuse("reason must be 1-200 characters");
+      const move_to = a.args.move_to ?? null;
+      return { kind: "adjudicate", invoice_id: a.args.invoice_id, share_index: a.args.share_index, approved, move_to };
     }
     refuse(`method ${a.method_name} is not relayed`);
   }
@@ -64,7 +69,18 @@ export function checkInvoice(intent, sender, invoice) {
   if (share.state !== "Open") refuse(`share is ${share.state}`);
   if (share.payer && share.payer !== sender) refuse("sender is not this share's named payer");
   if (intent.kind === "adjudicate") {
+    // Mirror the contract's rules so the relayer never pays for a rejected decision.
     if (!share.payer) refuse("only a named payer can adjudicate");
+    if (share.adjudication) refuse("share already adjudicated");
+    if (intent.approved < 0n || intent.approved > BigInt(share.amount)) refuse("approved amount cannot exceed the share");
+    if (intent.approved < BigInt(share.amount)) {
+      const t = intent.move_to;
+      if (t === null) refuse("move_to is required when approving less than the share");
+      if (t === intent.share_index) refuse("move_to must be another share");
+      const target = Number.isInteger(t) ? invoice.shares[t] : undefined;
+      if (!target) refuse("no such move_to share");
+      if (target.state !== "Open" || target.adjudication) refuse("move_to share must be open and not adjudicated");
+    }
     return;
   }
   if (intent.kind === "pay_token" && invoice.token !== intent.token) refuse("invoice is not priced in this token");

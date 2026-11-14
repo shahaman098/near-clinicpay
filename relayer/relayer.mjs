@@ -86,7 +86,7 @@ function serve(o, relayer) {
       reply(e instanceof Refused ? 403 : 500, { error: e.message });
     }
   });
-  server.listen(Number(o.port), () => console.error(`relayer ${relayer.accountId} on :${o.port} for ${o.contract}`));
+  server.listen(Number(o.port), () => console.error(`relayer ${relayer.accountId} listening on port ${server.address().port} for ${o.contract}`));
 }
 
 async function main(argv) {

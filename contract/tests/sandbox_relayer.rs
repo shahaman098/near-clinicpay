@@ -179,15 +179,16 @@ async fn gasless_stablecoin_payment_costs_the_payer_no_near() -> anyhow::Result<
 }
 
 #[tokio::test]
-async fn contract_rejection_of_a_relayed_call_costs_the_signer_nothing() -> anyhow::Result<()> {
+async fn relayer_refuses_an_adjudication_the_contract_would_reject() -> anyhow::Result<()> {
     let env = setup().await?;
     let signed = sign(&env, &env.patient, &["pay", "--id", "G-USDC", "--share", "0"]);
     let (code, r) = submit(&env, &signed);
     assert_eq!(code, 0, "{r}");
     settle().await;
-    let i0 = near_of(&env.insurer).await?;
+    let (i0, r0) = (near_of(&env.insurer).await?, near_of(&env.relayer).await?);
 
-    // The insurer records its claim decision without spending gas.
+    // Share 0 is already paid, so the residual cannot move there. The relayer mirrors
+    // the contract's rule and refuses before building a transaction: no gas is spent.
     let approved = (3 * USD).to_string();
     let signed = sign(
         &env,
@@ -195,13 +196,54 @@ async fn contract_rejection_of_a_relayed_call_costs_the_signer_nothing() -> anyh
         &["adjudicate", "--id", "G-USDC", "--share", "1", "--approved", &approved, "--reason", "CO-45 fee schedule", "--move-to", "0"],
     );
     let (code, r) = submit(&env, &signed);
-    // Share 0 is already paid, so the residual cannot move there: the relayer refuses
-    // nothing here (the shape is fine), but the contract rejects it and nothing changes.
-    assert_eq!(code, 1, "{r}");
-    assert!(r["failure"].to_string().contains("move_to share must be open"), "{r}");
+    assert_eq!(code, 3, "{r}");
+    assert!(r["error"].as_str().unwrap().contains("move_to share must be open"), "{r}");
     settle().await;
-    assert_eq!(near_of(&env.insurer).await?, i0, "insurer paid no gas even for a failed call");
+    assert_eq!(near_of(&env.insurer).await?, i0, "insurer spent nothing");
+    assert_eq!(near_of(&env.relayer).await?, r0, "relayer spent nothing");
+    let v: Value = env.pay.view("get_invoice").args_json(json!({"invoice_id": "G-USDC"})).await?.json()?;
+    assert!(v["shares"][1]["adjudication"].is_null());
     Ok(())
+}
+
+#[tokio::test]
+async fn http_relayer_serves_a_gasless_payment() -> anyhow::Result<()> {
+    use std::io::{BufRead, BufReader};
+    let env = setup().await?;
+    let rpc = env.worker.rpc_addr();
+    let mut child = Command::new("node")
+        .current_dir("..")
+        .args(["relayer/relayer.mjs", "serve", "--contract", env.pay.id().as_str(), "--token", env.token.id().as_str(), "--rpc", rpc.as_str(), "--port", "0"])
+        .env("RELAYER_ACCOUNT_ID", env.relayer.id().as_str())
+        .env("RELAYER_PRIVATE_KEY", env.relayer.secret_key().to_string())
+        .stderr(std::process::Stdio::piped())
+        .spawn()?;
+    let mut line = String::new();
+    BufReader::new(child.stderr.take().unwrap()).read_line(&mut line)?;
+    let port = line.trim().split("listening on port ").nth(1).and_then(|r| r.split(' ').next()).map(str::to_string);
+    let result = async {
+        let port = port.ok_or_else(|| anyhow::anyhow!("relayer did not start: {line}"))?;
+        settle().await;
+        let p0 = near_of(&env.patient).await?;
+        let url = format!("http://127.0.0.1:{port}");
+        let (code, out) = node(
+            "payer.mjs",
+            &["pay", "--contract", env.pay.id().as_str(), "--rpc", rpc.as_str(), "--id", "G-USDC", "--share", "0", "--relayer", &url],
+            "PAYER",
+            &env.patient,
+        );
+        assert_eq!(code, 0, "{out}");
+        let r: Value = serde_json::from_str(&out)?;
+        assert_eq!(r["ok"], true, "{r}");
+        assert_eq!(share_state(&env, "G-USDC", 0).await?, "Paid");
+        settle().await;
+        assert_eq!(near_of(&env.patient).await?, p0, "payer spent no NEAR");
+        assert_eq!(usd_of(&env, env.clinic.id().as_str()).await?, USD);
+        anyhow::Ok(())
+    }
+    .await;
+    let _ = child.kill();
+    result
 }
 
 #[tokio::test]
@@ -263,13 +305,17 @@ async fn relayer_refuses_calls_it_should_not_pay_for() -> anyhow::Result<()> {
     settle().await;
     assert_eq!(near_of(&env.relayer).await?, r0, "refusals cost the relayer nothing");
 
-    // A replayed delegate (same nonce) is rejected by the chain, so it cannot pay twice.
+    // Resubmitting the same signed delegate is refused by the relayer (the share is
+    // already paid), so it cannot pay twice. Its nonce is also spent, so the chain
+    // would reject it too.
     let signed = sign(&env, &env.patient, &["pay", "--id", "G-USDC", "--share", "0"]);
     let (code, r) = submit(&env, &signed);
     assert_eq!(code, 0, "{r}");
     let after_first = usd_of(&env, env.patient.id().as_str()).await?;
     let (code, r) = submit(&env, &signed);
-    assert_ne!(code, 0, "replay must fail: {r}");
+    assert_eq!(code, 3, "replay must be refused: {r}");
+    assert_eq!(r["refused"], true);
+    assert!(r["error"].as_str().unwrap().contains("share is Paid"), "{r}");
     assert_eq!(usd_of(&env, env.patient.id().as_str()).await?, after_first, "a replay moves no money");
     Ok(())
 }

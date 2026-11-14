@@ -5,12 +5,12 @@
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
-Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 74 passing (39 unit, 13 sandbox e2e on a real local NEAR node, 22 CLI/relayer/benchmark).
+Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 76 passing (39 unit, 14 sandbox e2e on a real local NEAR node, 23 CLI/relayer/benchmark).
 
 Fastest verification:
 
 ```sh
-npm test && (cd contract && cargo test)   # 74 tests, no keys, no network funds
+npm test && (cd contract && cargo test)   # 76 tests, no keys, no network funds
 cd contract && cargo run --example demo   # NEAR + stablecoin invoices, a rollback, insurer adjudication, a gasless payment
 ```
 
@@ -92,11 +92,11 @@ funds needed: everything below runs on a local sandbox node.
 
 1. **Run all tests.**
    ```sh
-   npm test                      # 22 tests: CLI (mock RPC node), relayer policy + encoding, benchmark
-   cd contract && cargo test     # 39 unit + 4 NEAR sandbox + 5 stablecoin sandbox + 4 gasless sandbox
+   npm test                      # 23 tests: CLI (mock RPC node), relayer policy + encoding, benchmark
+   cd contract && cargo test     # 39 unit + 4 NEAR sandbox + 5 stablecoin sandbox + 5 gasless sandbox
    ```
    You should see `test result: ok. 39 passed`, then `ok. 4 passed`, `ok. 5 passed`,
-   `ok. 4 passed`.
+   `ok. 5 passed`.
    - `tests/sandbox.rs` (NEAR): deploys the wasm, creates an invoice, pays it from two
      accounts, asserts the clinic's balance rose by exactly 5 NEAR and that the
      contract kept nothing, refunds a share, and kills the clinic account to prove a
@@ -115,8 +115,9 @@ funds needed: everything below runs on a local sandbox node.
      share with a signed delegate; their NEAR balance is unchanged to the yoctoNEAR,
      `paid_by` is the patient (not the relayer), and the relayer's balance drops. The
      insurer adjudicates gaslessly too. The relayer refuses a patient paying the
-     insurer's named share and malformed input without spending anything, and a
-     replayed delegate moves no money.
+     insurer's named share, an adjudication the contract would reject, malformed input
+     and a resubmitted delegate, each without spending anything. One test runs the
+     HTTP relayer (`serve`) and pays through it with `payer.mjs --relayer`.
 
 2. **Run the live demo** (starts a local node and leaves it running):
    ```sh
@@ -215,7 +216,9 @@ What the relayer pays for (`relayer/policy.mjs`), one function call per delegate
 with `receiver_id` = ClinicPay, 1 yoctoNEAR, a ClinicPay payment `msg`, ≤150 Tgas and a
 delegate valid for ≤1000 blocks. Before building a transaction it reads the invoice and
 refuses unless the share is open, the sender is its named payer (if any), and the
-amount matches exactly, so calls that would fail cannot drain it.
+amount matches exactly; for `adjudicate_share` it applies the contract's rules
+(approved ≤ billed, a valid open `move_to`, not adjudicated before). Calls that would
+fail on chain are refused before the relayer spends gas.
 
 Found while testing, and why NEAR invoices are not relayed: under NEP-366 the
 **relayer** funds any deposit attached inside the delegate, not the signer. A relayed
@@ -286,6 +289,9 @@ Open Government Licence v3.0. The tool is offline and read-only. The bands
   and refunded), an insurer adjudication, and a gasless payment. `tests/sandbox_ft.rs` proves
   the other failure cases (wrong amount or wrong payer); `tests/sandbox.rs` proves a
   failed NEAR payout.
+- The insurer chooses which open share absorbs an adjustment (normally the patient's,
+  but it could be an employer scheme's). A production version would let the clinic
+  mark, per invoice, which share takes adjustments.
 - `list_invoices` scans all invoices (fine at demo scale; needs an index at volume).
 - `create_invoice` charges no storage deposit, so invoice state is subsidised by the
   contract account; a production deployment should charge one.
