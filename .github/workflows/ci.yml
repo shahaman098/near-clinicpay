@@ -1,0 +1,27 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: CLI tests
+        run: npm test
+
+      - name: Contract unit tests
+        run: cargo test --lib --manifest-path contract/Cargo.toml
+
+      - name: Build the contract wasm
+        run: cargo build --release --target wasm32-unknown-unknown --manifest-path contract/Cargo.toml
