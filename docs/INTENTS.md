@@ -56,6 +56,8 @@ way:
 | Duplicate delivery to a paid share | tokens returned; no double credit |
 | Clinic not registered on the token, at 50 and at 30 Tgas | share reopens; tokens returned; contract holds 0 |
 | Gas sweep (settled = share Paid) | settles at 50, 45, 40, 35 and 30 Tgas; at 25 and 20 the tokens bounce back and the contract holds 0 |
+| Direct payer, clinic unregistered, every level 15–50 Tgas | share stays Open; sender gets every token back; contract holds 0 |
+| Clinic refund, every level 15–50 Tgas | all or nothing: either Refunded and the payer repaid, or still Paid and the clinic keeps the tokens; completes from 29 Tgas; contract holds 0 |
 
 **The gas fix.** With the original 15 Tgas forward + 15 Tgas callback, the same sweep
 settled only at 50 and 45 Tgas: the verifier's default worked with about 5 Tgas to

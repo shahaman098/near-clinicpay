@@ -5,12 +5,12 @@
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
-Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 97 passing (41 unit, 21 sandbox e2e on a real local NEAR node, 35 CLI/relayer/benchmark).
+Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 98 passing (41 unit, 22 sandbox e2e on a real local NEAR node, 35 CLI/relayer/benchmark).
 
 Fastest verification:
 
 ```sh
-npm test && (cd contract && cargo test)   # 97 tests, no keys, no network funds
+npm test && (cd contract && cargo test)   # 98 tests, no keys, no network funds
 cd contract && cargo run --example demo   # NEAR + stablecoin invoices, a rollback, insurer adjudication, a gasless payment
 ```
 
@@ -101,7 +101,7 @@ funds needed: everything below runs on a local sandbox node.
 1. **Run all tests.**
    ```sh
    npm test                      # 35 tests: CLI (mock RPC), Intents client, relayer policy, benchmark
-   cd contract && cargo test     # 41 unit + 4 NEAR + 5 stablecoin + 5 gasless + 1 deploy-tool + 6 Intents sandbox tests
+   cd contract && cargo test     # 41 unit + 4 NEAR + 5 stablecoin + 5 gasless + 1 deploy-tool + 7 Intents sandbox tests
    ```
    You should see `test result: ok. 39 passed`, then (in file order) `ok. 4 passed`,
    `ok. 5 passed`, `ok. 1 passed`, `ok. 5 passed`.

@@ -247,3 +247,73 @@ async fn rollback_holds_at_every_gas_level() -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+/// The clinic's refund path shares the lowered forward/callback gas. At every level a
+/// refund either completes (share Refunded, payer repaid) or bounces back whole (share
+/// still Paid, clinic keeps the tokens); ClinicPay never holds anything either way.
+#[tokio::test]
+async fn refund_is_all_or_nothing_at_every_gas_level() -> anyhow::Result<()> {
+    let env = setup(true).await?;
+    let mut lowest = None;
+    for gas in 15..=50u64 {
+        let id = format!("R-{gas}");
+        env.clinic
+            .call(env.pay.id(), "create_invoice")
+            .args_json(json!({
+                "id": id, "memo": "refund sweep",
+                "lines": [{"description": "Visit", "amount": (10 * USD).to_string()}],
+                "shares": [{"label": "Open", "payer": null, "amount": (10 * USD).to_string()}],
+                "due_ms": null, "token": env.token.id()
+            }))
+            .transact()
+            .await?
+            .into_result()?;
+        // Top the stand-in up: a refund that bounces leaves its 10 with the clinic.
+        env.token
+            .call("ft_transfer")
+            .args_json(json!({"receiver_id": env.intents.id(), "amount": (10 * USD).to_string()}))
+            .deposit(NearToken::from_yoctonear(1))
+            .transact()
+            .await?
+            .into_result()?;
+        let _ = env
+            .intents
+            .call(env.token.id(), "ft_transfer_call")
+            .args_json(json!({"receiver_id": env.pay.id(), "amount": (10 * USD).to_string(), "msg": msg(&id, 0)}))
+            .deposit(NearToken::from_yoctonear(1))
+            .gas(Gas::from_tgas(50))
+            .transact()
+            .await?;
+        assert_eq!(state(&env, &id, 0).await?, "Paid");
+        let payer_before = balance(&env.token, env.intents.id().as_str()).await?;
+        let clinic_before = balance(&env.token, env.clinic.id().as_str()).await?;
+        let refund = json!({"invoice_id": id, "share_index": 0, "action": "refund"}).to_string();
+        let _ = env
+            .clinic
+            .call(env.token.id(), "ft_transfer_call")
+            .args_json(json!({"receiver_id": env.pay.id(), "amount": (10 * USD).to_string(), "msg": refund}))
+            .deposit(NearToken::from_yoctonear(1))
+            .gas(Gas::from_tgas(gas))
+            .transact()
+            .await?;
+        let s = state(&env, &id, 0).await?;
+        let payer = balance(&env.token, env.intents.id().as_str()).await?;
+        let clinic = balance(&env.token, env.clinic.id().as_str()).await?;
+        match s.as_str() {
+            "Refunded" => {
+                assert_eq!(payer, payer_before + 10 * USD, "payer repaid at {gas} Tgas");
+                assert_eq!(clinic, clinic_before - 10 * USD, "clinic paid out at {gas} Tgas");
+                lowest.get_or_insert(gas);
+            }
+            "Paid" => {
+                assert_eq!(payer, payer_before, "payer untouched at {gas} Tgas");
+                assert_eq!(clinic, clinic_before, "clinic kept its tokens at {gas} Tgas");
+            }
+            other => panic!("unexpected state {other} at {gas} Tgas"),
+        }
+        assert_eq!(balance(&env.token, env.pay.id().as_str()).await?, 0, "ClinicPay holds 0 at {gas} Tgas");
+    }
+    eprintln!("lowest completing refund: {:?} Tgas", lowest);
+    assert!(lowest.is_some_and(|g| g <= 30), "a refund must complete by 30 Tgas");
+    Ok(())
+}
