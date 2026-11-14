@@ -5,12 +5,12 @@
 **Split-payer invoices for clinics, settled on NEAR with an on-chain receipt for every payment.**
 Track: Real-World Money (`realworld`). Built at NEAR HACKATHON, 2026-11-13 to 2026-11-14.
 
-Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 45 passing (25 unit, 8 sandbox e2e, 12 CLI/benchmark).
+Demo: [22-second video](docs/demo.mp4) · Repo: this one · Tests: 47 passing (27 unit, 8 sandbox e2e, 12 CLI/benchmark).
 
 Fastest verification:
 
 ```sh
-npm test && (cd contract && cargo test)   # 45 tests, no keys, no network funds
+npm test && (cd contract && cargo test)   # 47 tests, no keys, no network funds
 cd contract && cargo run --example demo   # settles two invoices, then shows a refund
 ```
 
@@ -76,9 +76,9 @@ funds needed: everything below runs on a local sandbox node.
 1. **Run all tests.**
    ```sh
    npm test                      # 12 tests: CLI against a mock RPC node + price benchmark
-   cd contract && cargo test     # 25 unit tests + 4 NEAR sandbox tests + 4 stablecoin sandbox tests
+   cd contract && cargo test     # 27 unit tests + 4 NEAR sandbox tests + 4 stablecoin sandbox tests
    ```
-   You should see `test result: ok. 25 passed`, then `ok. 4 passed` twice.
+   You should see `test result: ok. 27 passed`, then `ok. 4 passed` twice.
    - `tests/sandbox.rs` (NEAR): deploys the wasm, creates an invoice, pays it from two
      accounts, asserts the clinic's balance rose by exactly 5 NEAR and that the
      contract kept nothing, refunds a share, and kills the clinic account to prove a
@@ -130,6 +130,10 @@ funds needed: everything below runs on a local sandbox node.
 | `cancel_invoice(invoice_id)` | clinic | only while nothing is paid |
 | `get_invoice`, `get_status`, `list_invoices` | view | status: Open, PartiallyPaid, Paid, Refunded, Overdue, Cancelled |
 
+Status rules: a refunded share counts as closed, so an invoice is `Paid` once no
+share is `Open` (even if one was refunded instead); `Overdue` takes precedence over
+`PartiallyPaid` when the due date has passed.
+
 Build arguments for `create_invoice` without hand-writing yocto amounts:
 
 ```sh
@@ -176,7 +180,8 @@ Difference:                 +£468.44 (+202.3%) — out of line
 Bundled data: 665 outpatient procedures from the **NHS England National Cost
 Collection, National Schedule of NHS costs 2025/26** (Outpatient Procedures),
 extracted 2026-11-14. Contains public sector information licensed under the
-Open Government Licence v3.0. The tool is offline and read-only.
+Open Government Licence v3.0. The tool is offline and read-only. The bands
+(±10% in line, ±25% notable) are a rule of thumb, not a contractual threshold.
 
 ## Security notes
 
@@ -209,6 +214,11 @@ Open Government Licence v3.0. The tool is offline and read-only.
   the other failure cases (wrong amount or wrong payer); `tests/sandbox.rs` proves a
   failed NEAR payout.
 - `list_invoices` scans all invoices (fine at demo scale; needs an index at volume).
+- `create_invoice` charges no storage deposit, so invoice state is subsidised by the
+  contract account; a production deployment should charge one.
+- A reverted payout is refunded with a plain transfer. If the payer account no longer
+  exists, that transfer fails and the funds stay in the contract, with no automatic
+  recovery path.
 - `web/invoice.html` is a read-only viewer that uses the same RPC calls as the CLI. It
   was checked in Chrome against the local sandbox demo at desktop, tablet and mobile
   widths (no horizontal overflow), for a NEAR invoice and for a tUSDC invoice (the

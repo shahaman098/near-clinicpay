@@ -883,6 +883,35 @@ mod tests {
         assert_eq!(c.get_status("INV-3".into()), Some(Status::Overdue));
     }
 
+    #[test]
+    fn paid_and_refunded_shares_close_the_invoice() {
+        let mut c = setup();
+        ctx(accounts(2), NEAR);
+        let _ = c.pay_share("INV-1".into(), 0);
+        ctx(accounts(1), NEAR);
+        let _ = c.refund_share("INV-1".into(), 0);
+        ctx(accounts(3), 4 * NEAR);
+        let _ = c.pay_share("INV-1".into(), 1);
+        assert_eq!(c.get_status("INV-1".into()), Some(Status::Paid));
+    }
+
+    #[test]
+    fn overdue_takes_precedence_over_partial_payment() {
+        ctx(accounts(1), 0);
+        let mut c = ClinicPay::new();
+        c.create_invoice(
+            "INV-4".into(),
+            "".into(),
+            lines(),
+            two_shares(),
+            Some(U64(1)),
+            None,
+        );
+        ctx(accounts(2), NEAR);
+        let _ = c.pay_share("INV-4".into(), 0);
+        assert_eq!(c.get_status("INV-4".into()), Some(Status::Overdue));
+    }
+
     fn me() -> AccountId {
         "clinicpay.near".parse().unwrap()
     }
